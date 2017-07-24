@@ -242,7 +242,6 @@ class TestFixbvInit:
     #     for item in val:
     #         assert val[0] == item, 'Item %s is not identical to %s' % (repr(item), repr(val[0]))
 
-#TODO: Generate random fixbv, with correct valrange and data-type
 def generate_random_valid_fixbv_storedinteger(maxval=2 ** 99, maxshift=31, includemin=False, includemax=False):
     val = random.randint(-maxval, maxval - 1)
     shift = random.randint(-maxshift, maxshift - 1)

@@ -145,7 +145,7 @@ class fixbv(object):
     shift = property(getshift, setshift)
 
     def getfractionlength(self):
-        return -self._shift
+        return -self.shift
     fractionlength = property(getfractionlength)
 
     def getminsi(self):
@@ -192,55 +192,55 @@ class fixbv(object):
                 self.maxsi = max
 
         # if _nrbits:
-        #     self._min = 0
-        #     self._max = 2**_nrbits
+        #     self.minsi = 0
+        #     self.maxsi = 2**_nrbits
         # else:
         #     if isinstance(min, float):
-        #         self._min = long(floor(min*2**(-shift) + 0.5))
+        #         self.minsi = long(floor(min*2**(-shift) + 0.5))
         #     elif isinstance(min, tuple):
         #         # align with shift-value of val, then store min-value
         #
-        #         self._min = min
+        #         self.minsi = min
         #     # elif
         #
         #     if isinstance(max, float):
-        #         self._max = int(floor(max*2**(-shift) + 0.5))
+        #         self.maxsi = int(floor(max*2**(-shift) + 0.5))
         #     else:
-        #         self._max = max
-        #     if self._max is not None and self._min is not None:
-        #         if self._min >= 0:
-        #             _nrbits = len(bin(self._max-1))
-        #         elif self._max <= 1:
-        #             _nrbits = len(bin(self._min))
+        #         self.maxsi = max
+        #     if self.maxsi is not None and self.minsi is not None:
+        #         if self.minsi >= 0:
+        #             _nrbits = len(bin(self.maxsi-1))
+        #         elif self.maxsi <= 1:
+        #             _nrbits = len(bin(self.minsi))
         #         else:
         #             # make sure there is a leading zero bit in positive numbers
-        #             _nrbits = builtins.max(len(bin(self._max-1))+1, len(bin(self._min)))
+        #             _nrbits = builtins.max(len(bin(self.maxsi-1))+1, len(bin(self.minsi)))
         # if isinstance(val, float):
-        #     self._val = int(floor(val*2**(-shift) + 0.5))
-        #     self._shift = shift
+        #     self.si = int(floor(val*2**(-shift) + 0.5))
+        #     self.shift = shift
         # elif isinstance(val, integer_types):
-        #     self._val = val
-        #     self._shift = shift
+        #     self.si = val
+        #     self.shift = shift
         # elif isinstance(val, string_types):
         #     mval = val.replace('_', '')
-        #     self._val = long(mval, 2)
+        #     self.si = long(mval, 2)
         #     _nrbits = len(mval)
-        #     self._shift = shift
+        #     self.shift = shift
         # elif isinstance(val, fixbv):
-        #     self._val = val._val*2**(val._shift-shift)
-        #     self._min = val._min
-        #     self._max = val._max
-        #     self._shift = val._shift
+        #     self.si = val._val*2**(val._shift-shift)
+        #     self.minsi = val._min
+        #     self.maxsi = val._max
+        #     self.shift = val._shift
         #     _nrbits = val._nrbits
         # elif isinstance(val, intbv):
-        #     self._val = val._val
-        #     self._min = val._min
-        #     self._max = val._max
-        #     self._shift = shift
+        #     self.si = val._val
+        #     self.minsi = val._min
+        #     self.maxsi = val._max
+        #     self.shift = shift
         #     _nrbits = val._nrbits
         # else:
         #     raise TypeError("fixbv constructor arg should be inbv, int or string")
-        # self._nrbits = _nrbits
+        # self.nrbits = _nrbits
         self._handleBounds()
 
     #
@@ -287,13 +287,13 @@ class fixbv(object):
                 Smax = fixbvstr_from_tuple(self.maxsi, self.shift)
                 raise ValueError("Value %s out of range [%s, %s>" % (Ssi, Smin, Smax))
 
-    def _hasFullRange(self):
-        min, max = self._min, self._max
-        if max <= 0:
-            return False
-        if min not in (0, -max):
-            return False
-        return max & max-1 == 0
+    # def _hasFullRange(self):
+    #     min, max = self.minsi, self.maxsi
+    #     if max <= 0:
+    #         return False
+    #     if min not in (0, -max):
+    #         return False
+    #     return max & max-1 == 0
 
     # hash
     def __hash__(self):
@@ -325,24 +325,24 @@ class fixbv(object):
 
     def __getitem__(self, key):
         if isinstance(key, slice):
-            i, j = key.start-self._shift, key.stop-self._shift
+            i, j = key.start-self.shift, key.stop-self.shift
             if j is None: # default
-                j = self._shift
+                j = self.shift
             j = int(j)
             if j < 0:
                 raise ValueError("fixbv[i:j] requires j >= {}\n" \
-                      "            j == {}".format(self._shift, j))
+                      "            j == {}".format(self.shift, j))
             if i is None: # default
-                return intbv(self._val >> j)
+                return intbv(self.si >> j)
             i = int(i)
             if i <= j:
                 raise ValueError("fixbv[i:j] requires i > j\n" \
                       "            i, j == {}, {}".format(i, j))
-            res = intbv((self._val & (long(1) << i)-1) >> j, _nrbits=i-j)
+            res = intbv((self.si & (long(1) << i)-1) >> j, _nrbits=i-j)
             return res
         else:
-            i = int(key-self._shift)
-            res = bool((self._val >> i) & 0x1)
+            i = int(key-self.shift)
+            res = bool((self.si >> i) & 0x1)
             return res
 
 
@@ -359,8 +359,8 @@ class fixbv(object):
                 raise ValueError("intbv[i:j] = v requires j >= 0\n" \
                       "            j == %s" % j)
             if i is None: # default
-                q = self._val % (long(1) << j)
-                self._val = val * (long(1) << j) + q
+                q = self.si % (long(1) << j)
+                self.si = val * (long(1) << j) + q
                 self._handleBounds()
                 return
             i = int(i)
@@ -372,15 +372,15 @@ class fixbv(object):
                 raise ValueError("intbv[i:j] = v abs(v) too large\n" \
                       "            i, j, v == %s, %s, %s" % (i, j, val))
             mask = (lim-1) << j
-            self._val &= ~mask
-            self._val |= (val << j)
+            self.si &= ~mask
+            self.si |= (val << j)
             self._handleBounds()
         else:
             i = int(key)
             if val == 1:
-                self._val |= (long(1) << i)
+                self.si |= (long(1) << i)
             elif val == 0:
-                self._val &= ~(long(1) << i)
+                self.si &= ~(long(1) << i)
             else:
                 raise ValueError("intbv[i] = v requires v in (0, 1)\n" \
                       "            i == %s " % i)
@@ -393,168 +393,168 @@ class fixbv(object):
     
     def __add__(self, other):
         if self._isfixbv(other):
-            if self._shift >= other._shift:
-                val = self._val*2**(self._shift-other._shift) + other._val
+            if self.shift >= other._shift:
+                val = self.si*2**(self.shift-other._shift) + other._val
                 shift = other._shift
             else:
-                val = self._val + other._val*2**(other._shift-self._shift) 
-                shift = self._shift
+                val = self.si + other._val*2**(other._shift-self.shift) 
+                shift = self.shift
             return fixbv(val, shift)
         elif isinstance(other, intbv):
-            val = self._val + other._val*2**(-self._shift)
+            val = self.si + other._val*2**(-self.shift)
         else:
-            val = int(self._val + other*2**(-self._shift))
-        return fixbv(val, self._shift)
+            val = int(self.si + other*2**(-self.shift))
+        return fixbv(val, self.shift)
             
     __radd__=__add__
     
     def __sub__(self, other):
         if self._isfixbv(other):
-            val = float(int(self._val)*2**self._shift - int(other._val)*2**other._shift)
-            if self._shift >= other._shift:
+            val = float(int(self.si)*2**self.shift - int(other._val)*2**other._shift)
+            if self.shift >= other._shift:
                 shift = other._shift
             else:
-                shift = self._shift
+                shift = self.shift
             return fixbv(val, shift)
         elif isinstance(other, intbv):
-            val = self._val - other._val*2**(-self._shift)
+            val = self.si - other._val*2**(-self.shift)
         else:
-            val = self._val - other*2**(-self._shift)
-            return fixbv(val, self._shift)
+            val = self.si - other*2**(-self.shift)
+            return fixbv(val, self.shift)
 
     def __rsub__(self, other):
         if isinstance(other, intbv):
-            val = -self._val + other._val*2**(-self._shift)
+            val = -self.si + other._val*2**(-self.shift)
         else:
-            val = -self._val + other*2**(-self._shift)
-        return fixbv(val, self._shift)
+            val = -self.si + other*2**(-self.shift)
+        return fixbv(val, self.shift)
 
     def __mul__(self, other):
         if self._isfixbv(other):
-            val = self._val * int(other._val)
-            shift = self._shift + other._shift
+            val = self.si * int(other._val)
+            shift = self.shift + other._shift
         elif isinstance(other, intbv):
-            val = self._val * other._val
-            shift = self._shift
+            val = self.si * other._val
+            shift = self.shift
         else:
-            val = self._val * 2**self._shift * other
-            shift = self._shift
+            val = self.si * 2**self.shift * other
+            shift = self.shift
         return fixbv(val, shift)
             
     __rmul__=__mul__
     
     def __truediv__(self, other):
         if self._isfixbv(other):
-            return float(self._val*2**self._shift) / float(other._val*2**other._shift)
+            return float(self.si*2**self.shift) / float(other._val*2**other._shift)
         elif isinstance(other, intbv):
-            return float(self._val*2**self._shift) / float(other._val)
+            return float(self.si*2**self.shift) / float(other._val)
         else:
-            return float(self._val*2**self._shift) / float(other)
+            return float(self.si*2**self.shift) / float(other)
     
     def __rtruediv__(self, other):
         if isinstance(other, intbv):
-            return float(other._val) / float(self._val*2**self._shift)
+            return float(other._val) / float(self.si*2**self.shift)
         else:
-            return float(other) / float(self._val*2**self._shift)
+            return float(other) / float(self.si*2**self.shift)
     
     def __floordiv__(self, other):
         if self._isfixbv(other):
-            return int(float(self._val*2**self._shift) // float(other._val*2**other._shift))
+            return int(float(self.si*2**self.shift) // float(other._val*2**other._shift))
         elif isinstance(other, intbv):
-            return int(float(self._val*2**self._shift) // float(other._val))
+            return int(float(self.si*2**self.shift) // float(other._val))
         else:
-            return int(float(self._val*2**self._shift) // float(other))
+            return int(float(self.si*2**self.shift) // float(other))
 
     def __rfloordiv__(self, other):
         if isinstance(other, intbv):
-            return int(float(other._val) // float(self._val*2**self._shift))
+            return int(float(other._val) // float(self.si*2**self.shift))
         else:
-            return int(float(other) // float(self._val*2**self._shift))
+            return int(float(other) // float(self.si*2**self.shift))
         
     def __mod__(self, other):
         if self._isfixbv(other):
-            return float(self._val*2**self._shift) % float(other._val*2**other._shift)
+            return float(self.si*2**self.shift) % float(other._val*2**other._shift)
         if isinstance(other, intbv):
-            return float(self._val*2**self._shift) % float(other._val)
+            return float(self.si*2**self.shift) % float(other._val)
         else:
-            return float(self._val*2**self._shift) % float(other)
+            return float(self.si*2**self.shift) % float(other)
 
     def __rmod__(self, other):
         if isinstance(other, intbv):
-            return float(other._val) % float(self._val*2**self._shift)
+            return float(other._val) % float(self.si*2**self.shift)
         else:
-            return float(other) % float(self._val*2**self._shift)
+            return float(other) % float(self.si*2**self.shift)
 
     # divmod
     
     def __pow__(self, other):
         if self._isfixbv(other):
-            return float(self._val*2**self._shift)**float(other._val*2**self._shift)
+            return float(self.si*2**self.shift)**float(other._val*2**self.shift)
         elif isinstance(other, intbv):
-            return float(self._val*2**self._shift)**float(other._val)
+            return float(self.si*2**self.shift)**float(other._val)
         else:
-            return float(self._val*2**self._shift)**float(other)
+            return float(self.si*2**self.shift)**float(other)
 
     def __rpow__(self, other):
         if isinstance(other, intbv):
-            return float(other._val)**float(self._val*2**self._shift)
+            return float(other._val)**float(self.si*2**self.shift)
         else:
-            return other**float(self._val*2**self._shift)
+            return other**float(self.si*2**self.shift)
 
     def __lshift__(self, other):
         if self._isfixbv(other):
-            shift = float(other._val*2**self._shift)
+            shift = float(other._val*2**self.shift)
             if (shift % 1.0) != 0:
                 raise TypeError("Cannot shift value by an None-integer type")
-            return fixbv(self._val, self._shift+int(shift))
+            return fixbv(self.si, self.shift+int(shift))
         elif isinstance(other, intbv):
             shift = float(other._val)
             if (shift % 1.0) != 0:
                 raise TypeError("Cannot shift value by an None-integer type")
-            return fixbv(self._val, self._shift+int(other._val))
+            return fixbv(self.si, self.shift+int(other._val))
         else:
             shift = float(other)
             if (shift % 1.0) != 0:
                 raise TypeError("Cannot shift value by an None-integer type")
-            return fixbv(self._val, self._shift+int(other))
+            return fixbv(self.si, self.shift+int(other))
             
     def __rlshift__(self, other):
         if isinstance(other, intbv):
-            shift = float(self._val*2**self._shift)
+            shift = float(self.si*2**self.shift)
             if (shift % 1.0) != 0:
                 raise TypeError("Cannot shift value by an None-integer type")
             return other._val << int(shift)
         else:
-            shift = float(self._val*2**self._shift)
+            shift = float(self.si*2**self.shift)
             if (shift % 1.0) != 0:
                 raise TypeError("Cannot shift value by an None-integer type")
             return other << int(shift)
             
     def __rshift__(self, other):
         if self._isfixbv(other):
-            shift = float(other._val*2**self._shift)
+            shift = float(other._val*2**self.shift)
             if (shift % 1.0) != 0:
                 raise TypeError("Cannot shift value by an None-integer type")
-            return fixbv(self._val, self._shift-int(shift))
+            return fixbv(self.si, self.shift-int(shift))
         elif isinstance(other, intbv):
             shift = float(other._val)
             if (shift % 1.0) != 0:
                 raise TypeError("Cannot shift value by an None-integer type")
-            return fixbv(self._val, self._shift-int(other._val))
+            return fixbv(self.si, self.shift-int(other._val))
         else:
             shift = float(other)
             if (shift % 1.0) != 0:
                 raise TypeError("Cannot shift value by an None-integer type")
-            return fixbv(self._val, self._shift-int(other))
+            return fixbv(self.si, self.shift-int(other))
 
     def __rrshift__(self, other):
         if isinstance(other, intbv):
-            shift = float(self._val*2**self._shift)
+            shift = float(self.si*2**self.shift)
             if (shift % 1.0) != 0:
                 raise TypeError("Cannot shift value by an None-integer type")
             return other._val >> int(shift)
         else:
-            shift = float(self._val*2**self._shift)
+            shift = float(self.si*2**self.shift)
             if (shift % 1.0) != 0:
                 raise TypeError("Cannot shift value by an None-integer type")
             return other >> int(shift)
@@ -565,30 +565,30 @@ class fixbv(object):
             
     def __and__(self, other):
         if hasattr(other, '_shift') or isinstance(other, intbv):
-            return type(self)(self._val & other._val, self._shift)
+            return type(self)(self.si & other._val, self.shift)
         else:
-            return type(self)(self._val & other, self._shift)
+            return type(self)(self.si & other, self.shift)
             
     def __rand__(self, other):
-        return type(self)(other & self._val, self._shift)
+        return type(self)(other & self.si, self.shift)
 
         
     def __or__(self, other):
         if hasattr(other, '_shift') or isinstance(other, intbv):
-            return type(self)(self._val | other._val, self._shift)
+            return type(self)(self.si | other._val, self.shift)
         else:
-            return type(self)(self._val | other, self._shift)
+            return type(self)(self.si | other, self.shift)
     def __ror__(self, other):
-        return type(self)(other | self._val, self._shift)
+        return type(self)(other | self.si, self.shift)
     
     def __xor__(self, other):
         if hasattr(other, '_shift') or isinstance(other, intbv):
-            return type(self)(self._val ^ other._val, self._shift)
+            return type(self)(self.si ^ other._val, self.shift)
         else:
-            return type(self)(self._val ^ other, self._shift)
+            return type(self)(self.si ^ other, self.shift)
 
     def __rxor__(self, other):
-        return type(self)(other ^ self._val, self._shift)
+        return type(self)(other ^ self.si, self.shift)
 
 #------------------------------------------------------------------------------            
 #
@@ -659,19 +659,19 @@ class fixbv(object):
         return result
 
     def __neg__(self):
-        return -self._val
+        return -self.si
 
     def __pos__(self):
-        return self._val
+        return self.si
 
     def __abs__(self):
-        return abs(self._val)
+        return abs(self.si)
 
     def __invert__(self):
-        if self._nrbits and self._min >= 0:
-            return type(self)(~self._val & (long(1) << self._nrbits)-1)
+        if self.nrbits and self.minsi >= 0:
+            return type(self)(~self.si & (long(1) << self.nrbits)-1)
         else:
-            return type(self)(~self._val)
+            return type(self)(~self.si)
     
     def __index__(self):
         return int(self)
@@ -782,30 +782,29 @@ class fixbv(object):
       '''
 
       # value is considered unsigned
-      if self.min is not None and self.min >= 0 and self._nrbits > 0:
+      if self.min is not None and self.min >= 0 and self.nrbits > 0:
 
         # get 2's complement value of bits
-        msb = self._nrbits-1
+        msb = self.nrbits-1
 
-        sign = ((self._val >> msb) & 0x1) > 0
+        sign = ((self.si >> msb) & 0x1) > 0
         
         # mask off the bits msb-1:lsb, they are always positive
         mask = (1<<msb) - 1
-        retVal = self._val & mask
+        retVal = self.si & mask
         # if sign bit is set, subtract the value of the sign bit
         if sign:
           retVal -= 1<<msb
 
       else: # value is returned just as is
-        retVal = self._val
+        retVal = self.si
 
       return retVal
 
 #-- end of file '_fixbv.py' ------------------------------------------------------------------------
 
-if __name__ == "__main__":
-    a = fixbv(1, 28)
-    b = fixbv(2**28, 0)
-    (c,d) = a.align(b)
-    print c
-    print d
+# if __name__ == "__main__":
+#     a = fixbv(1, 28)
+#     b = fixbv(2**28, 0)
+#
+#     a.
