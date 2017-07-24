@@ -57,6 +57,128 @@ class TestFixbvInit:
             assert(a == a)
             assert(not(a!=a))
 
+    def testGTLE_fixbv(self):
+        # Verify == and != implementation
+        for k in xrange(1000):
+            a = generate_random_valid_fixbv_storedinteger(maxval=2**99, maxshift=31, includemin=True, includemax=True)
+            b = a + 1
+            assert(b > a)
+            assert(not(b <= a))
+
+    def testLTGE_fixbv(self):
+        # Verify == and != implementation
+        for k in xrange(1000):
+            a = generate_random_valid_fixbv_storedinteger(maxval=2**99, maxshift=31, includemin=True, includemax=True)
+            b = a - 1
+            assert(b < a)
+            assert(not(b >= a))
+
+    def testGenerateRandomValidFixbvStoredInteger(self):
+        shiftMax = 31
+        valMax = 2**99
+        for k in xrange(1000):
+            # Pick a random value/shift combination
+            a = generate_random_valid_fixbv_storedinteger(maxval=valMax, maxshift=shiftMax, includemin=True, includemax=True)
+            assert a.minsi <= a.si < a.maxsi
+            assert a.minsi >= -valMax
+            assert a.maxsi <= valMax
+            assert a.shift <= shiftMax
+
+    def testAlignValues_fixbv(self):
+        shiftMax = 31
+        valMax = 2**99
+        for k in xrange(1000):
+            # Pick a random value/shift combination
+            a = generate_random_valid_fixbv_storedinteger(maxval=valMax, maxshift=shiftMax, includemin=True, includemax=True)
+            b = generate_random_valid_fixbv_storedinteger(maxval=valMax, maxshift=shiftMax, includemin=True, includemax=True)
+            (c, d) = a.align(b)
+            assert c==a or d==b
+
+    def testCalcNrBits(self):
+        a = fixbv(0, 0, min=-4, max=4, rawinit=True)        #min and max give same number of bits
+        assert a.nrbits == 3
+
+        a = fixbv(0, 0, min=-7, max=4, rawinit=True)        #min is dominant
+        assert a.nrbits == 4
+
+        a = fixbv(0, 0, min=-1, max=4, rawinit=True)        #max is dominant
+        assert a.nrbits == 3
+        a = fixbv(0, 0, min=0, max=4, rawinit=True)         #max is dominant
+        assert a.nrbits == 3
+
+        # test some other values
+        a = fixbv(0, 0, min=0, max=1, rawinit=True)
+        assert a.nrbits == 0
+        a = fixbv(0, 0, min=0, max=2, rawinit=True)
+        assert a.nrbits == 2
+
+        # test values larger than what a IEEE double-precision-floating-point can handle in the mantissa
+        a = fixbv(0, 0, min=-2**99, max=1, rawinit=True)
+        assert a.nrbits == 100
+        a = fixbv(0, 0, min=0, max=2**99, rawinit=True)
+        assert a.nrbits == 100
+
+    def testHandleBounds(self):
+        shiftMax = 4
+        valMax = 15
+
+        # Test handlebound-function when min/max are not None
+        a = generate_random_valid_fixbv_storedinteger(maxval=valMax, maxshift=shiftMax, includemin=True,includemax=True)
+        # This should work
+        a.si = a.maxsi-1
+        a._handleBounds()
+        # This should not work
+        a.si = a.maxsi
+        with pytest.raises(ValueError):
+            a._handleBounds()
+        # This should work
+        a.si = a.minsi
+        a._handleBounds()
+        # This should not work
+        a.si = a.minsi-1
+        with pytest.raises(ValueError):
+            a._handleBounds()
+
+        # Test handlebound-function when min/max both are None
+        a = generate_random_valid_fixbv_storedinteger(maxval=valMax, maxshift=shiftMax, includemin=False, includemax=False)
+        a.si = valMax + 100
+        a._handleBounds         # No error is expected, because nothing is checked
+
+    def testAdd_fixbv(self):
+        # test with 'small' numbers, that will fit within the mantissa of a floating point number
+        for k in xrange(1000):
+            a = generate_random_valid_fixbv_storedinteger(maxval=2**30, maxshift=3, includemin=False, includemax=False)
+            b = generate_random_valid_fixbv_storedinteger(maxval=2**30, maxshift=3, includemin=False, includemax=False)
+            c = a+b
+            c_float = float(a) + float(b)
+            assert(float(c) == c_float)
+
+        def testAdd_fixbv(self):
+            # test with 'small' numbers, that will fit within the mantissa of a floating point number
+            for k in xrange(1000):
+                a = generate_random_valid_fixbv_storedinteger(maxval=2 ** 30, maxshift=3, includemin=False,
+                                                              includemax=False)
+                b = generate_random_valid_fixbv_storedinteger(maxval=2 ** 30, maxshift=3, includemin=False,
+                                                              includemax=False)
+                c = a - b
+                c_float = float(a) - float(b)
+                assert (float(c) == c_float)
+
+    # def testInit_correct(self):
+    #     val = []
+    #     val.append(fixbv(0.75))
+    #     val.append(fixbv(0.75, shift=0.0))
+    #     val.append(fixbv(0.75, min=-10.0))
+    #     val.append(fixbv(0.75, max=+15.0))
+    #     val.append(fixbv(0.75, _nrbits=5.0))
+    #     val.append(fixbv(0.75, shift=0))
+    #     val.append(fixbv(0.75, min=-10))
+    #     val.append(fixbv(0.75, max=+15))
+    #     val.append(fixbv(0.75, _nrbits=5))
+    #     # check whether they are all the same
+    #     for item in val:
+    #         assert val[0] == item, 'Item %s is not identical to %s' % (repr(item), repr(val[0]))
+
     @pytest.mark.xfail(reason='overflow, underflow and rounding errors will cause mismatch between numbers')
     def testNEq_intbv(self):
         for k in xrange(1000):
@@ -109,27 +231,6 @@ class TestFixbvInit:
             assert(b == a)
             assert (not (b != a))
 
-    def testGenerateRandomValidFixbvStoredInteger(self):
-        shiftMax = 31
-        valMax = 2**99
-        for k in xrange(1000):
-            # Pick a random value/shift combination
-            a = generate_random_valid_fixbv_storedinteger(maxval=valMax, maxshift=shiftMax, includemin=True, includemax=True)
-            assert a.minsi <= a.si < a.maxsi
-            assert a.minsi >= -valMax
-            assert a.maxsi <= valMax
-            assert a.shift <= shiftMax
-
-    def testAlignValues_fixbv(self):
-        shiftMax = 31
-        valMax = 2**99
-        for k in xrange(1000):
-            # Pick a random value/shift combination
-            a = generate_random_valid_fixbv_storedinteger(maxval=valMax, maxshift=shiftMax, includemin=True, includemax=True)
-            b = generate_random_valid_fixbv_storedinteger(maxval=valMax, maxshift=shiftMax, includemin=True, includemax=True)
-            (c, d) = a.align(b)
-            assert c==a or d==b
-
     @pytest.mark.xfail(reason='values will be different, due to rounding/underflow/overflow errors')
     def testAlignValues_intbv(self):
         shiftMax = 31
@@ -176,71 +277,6 @@ class TestFixbvInit:
             b = float(random.randint(-valMax, valMax - 1))
             (c, d) = a.align(b)
             assert c == a or d == b
-
-    def testCalcNrBits(self):
-        a = fixbv(0, 0, min=-4, max=4, rawinit=True)        #min and max give same number of bits
-        assert a.nrbits == 3
-
-        a = fixbv(0, 0, min=-7, max=4, rawinit=True)        #min is dominant
-        assert a.nrbits == 4
-
-        a = fixbv(0, 0, min=-1, max=4, rawinit=True)        #max is dominant
-        assert a.nrbits == 3
-        a = fixbv(0, 0, min=0, max=4, rawinit=True)         #max is dominant
-        assert a.nrbits == 3
-
-        # test some other values
-        a = fixbv(0, 0, min=0, max=1, rawinit=True)
-        assert a.nrbits == 0
-        a = fixbv(0, 0, min=0, max=2, rawinit=True)
-        assert a.nrbits == 2
-
-        # test values larger than what a IEEE double-precision-floating-point can handle in the mantissa
-        a = fixbv(0, 0, min=-2**99, max=1, rawinit=True)
-        assert a.nrbits == 100
-        a = fixbv(0, 0, min=0, max=2**99, rawinit=True)
-        assert a.nrbits == 100
-
-    def testHandleBounds(self):
-        shiftMax = 4
-        valMax = 15
-
-        # Test handlebound-function when min/max are not None
-        a = generate_random_valid_fixbv_storedinteger(maxval=valMax, maxshift=shiftMax, includemin=True,includemax=True)
-        # This should work
-        a.si = a.maxsi-1
-        a._handleBounds()
-        # This should not work
-        a.si = a.maxsi
-        with pytest.raises(ValueError):
-            a._handleBounds()
-        # This should work
-        a.si = a.minsi
-        a._handleBounds()
-        # This should not work
-        a.si = -a.minsi-1
-        with pytest.raises(ValueError):
-            a._handleBounds()
-
-        # Test handlebound-function when min/max both are None
-        a = generate_random_valid_fixbv_storedinteger(maxval=valMax, maxshift=shiftMax, includemin=False, includemax=False)
-        a.si = valMax + 100
-        a._handleBounds         # No error is expected, because nothing is checked
-
-    # def testInit_correct(self):
-    #     val = []
-    #     val.append(fixbv(0.75))
-    #     val.append(fixbv(0.75, shift=0.0))
-    #     val.append(fixbv(0.75, min=-10.0))
-    #     val.append(fixbv(0.75, max=+15.0))
-    #     val.append(fixbv(0.75, _nrbits=5.0))
-    #     val.append(fixbv(0.75, shift=0))
-    #     val.append(fixbv(0.75, min=-10))
-    #     val.append(fixbv(0.75, max=+15))
-    #     val.append(fixbv(0.75, _nrbits=5))
-    #     # check whether they are all the same
-    #     for item in val:
-    #         assert val[0] == item, 'Item %s is not identical to %s' % (repr(item), repr(val[0]))
 
 def generate_random_valid_fixbv_storedinteger(maxval=2 ** 99, maxshift=31, includemin=False, includemax=False):
     val = random.randint(-maxval, maxval - 1)

@@ -393,41 +393,54 @@ class fixbv(object):
     
     def __add__(self, other):
         if self._isfixbv(other):
-            if self.shift >= other._shift:
-                val = self.si*2**(self.shift-other._shift) + other._val
-                shift = other._shift
-            else:
-                val = self.si + other._val*2**(other._shift-self.shift) 
-                shift = self.shift
-            return fixbv(val, shift)
-        elif isinstance(other, intbv):
-            val = self.si + other._val*2**(-self.shift)
+            (c, d) = self.align(other)
+            return fixbv(c.si + d.si, c.shift)
         else:
-            val = int(self.si + other*2**(-self.shift))
-        return fixbv(val, self.shift)
+            x = fixbv(other)
+            return self + x
+        # if self._isfixbv(other):
+        #     if self.shift >= other._shift:
+        #         val = self.si*2**(self.shift-other._shift) + other._val
+        #         shift = other._shift
+        #     else:
+        #         val = self.si + other._val*2**(other._shift-self.shift)
+        #         shift = self.shift
+        #     return fixbv(val, shift)
+        # elif isinstance(other, intbv):
+        #     val = self.si + other._val*2**(-self.shift)
+        # else:
+        #     val = int(self.si + other*2**(-self.shift))
+        # return fixbv(val, self.shift)
             
     __radd__=__add__
     
     def __sub__(self, other):
         if self._isfixbv(other):
-            val = float(int(self.si)*2**self.shift - int(other._val)*2**other._shift)
-            if self.shift >= other._shift:
-                shift = other._shift
-            else:
-                shift = self.shift
-            return fixbv(val, shift)
-        elif isinstance(other, intbv):
-            val = self.si - other._val*2**(-self.shift)
+            (c, d) = self.align(other)
+            return fixbv(c.si - d.si, c.shift)
         else:
-            val = self.si - other*2**(-self.shift)
-            return fixbv(val, self.shift)
+            x = fixbv(other)
+            return self - x
+        # if self._isfixbv(other):
+        #     val = float(int(self.si)*2**self.shift - int(other._val)*2**other._shift)
+        #     if self.shift >= other._shift:
+        #         shift = other._shift
+        #     else:
+        #         shift = self.shift
+        #     return fixbv(val, shift)
+        # elif isinstance(other, intbv):
+        #     val = self.si - other._val*2**(-self.shift)
+        # else:
+        #     val = self.si - other*2**(-self.shift)
+        #     return fixbv(val, self.shift)
 
-    def __rsub__(self, other):
-        if isinstance(other, intbv):
-            val = -self.si + other._val*2**(-self.shift)
-        else:
-            val = -self.si + other*2**(-self.shift)
-        return fixbv(val, self.shift)
+    __radd__ = __add__
+    # def __rsub__(self, other):
+    #     if isinstance(other, intbv):
+    #         val = -self.si + other._val*2**(-self.shift)
+    #     else:
+    #         val = -self.si + other*2**(-self.shift)
+    #     return fixbv(val, self.shift)
 
     def __mul__(self, other):
         if self._isfixbv(other):
@@ -803,8 +816,11 @@ class fixbv(object):
 
 #-- end of file '_fixbv.py' ------------------------------------------------------------------------
 
-# if __name__ == "__main__":
-#     a = fixbv(1, 28)
-#     b = fixbv(2**28, 0)
-#
-#     a.
+if __name__ == "__main__":
+    a = fixbv(1, 2)
+    b = a - 1
+
+    print b<a
+    print b<=a
+    print b>a
+    print b>=a
