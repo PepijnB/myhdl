@@ -19,77 +19,229 @@
 
 """ Module with the intbv class """
 from __future__ import absolute_import, division
-from math import floor
+from math import floor, ceil, log
 import operator
 
 from myhdl._compat import long, integer_types, string_types, builtins
 from myhdl._bin import bin
 from myhdl._intbv import intbv
 
+
+# Any fixed-point is a scaled integer, and can therefore be represented by a integer-value and a scaling factor,
+# where the scaling-factor must be a integer-power of 2: scaling-factor = 2^shift, where the shift-factor can be any
+# integer value (positive and negative). The shift factor is related to the fractionlength by the relation:
+# fractionlength=-shift.
+# By definition: RealWorldValue = StoredInteger * 2**shift
+#
+# Because a fixed-point number is a scaled integer, all fixed-point numbers lie on a 'grid' determined by the
+# shift-factor. When the fixbv is initialized, the initialization-value might not lie on the grid. When this happens, the
+# initialization-value is rounded to the nearest grid-point. The same holds for the 'min'- and 'max'-value.
+#
+# Eventhough all operations are performed in full-precision, without overflow handling or rounding, the 'min'- and 'max'-value
+# can be provided. These values are used to determine the number of bits (nrbits) and when assigning the fixbv to a Signal.next 
+# 'register'. During this assignment, the selected rounding mode and overflow mode is used (TODO: to be implemented).
+
+# Guidelines
+# -------------------------------------------------------
+# * Precision:
+#    Because (a) every fixed-point number is represented by an stored-integer and (b) python can handle integers of
+#    infinite length, all operations within the fixbv-class can be (and are!) done with infinite precision.
+#    Casting the fixbv to a float, might therefore cause for round-off errors or over-/underflow errors.
+# * Quantization and overflow handling
+#    The fixbv-class will do all operations in full-precision, therefore quantization and overflow handling will not be done.
+#    These operations only make sense when the actual number is stored into a register. Therefore this should be handled by the
+#    Signal-class. Unfortunately this choice was not made. Therefore the following behavior is used:
+#     * at initialization: the min/max and nrbits values are optional, unless it is used to initiate a Signal, then it
+#       is mandatory
+#     * After any operation (add/sub/mult/etc) a fixbv without these fields, will be returned. This is done because one
+#       can only make worstcase estimates about the min/max value and the nr-bits. Internal arithmetic is infinite
+#       precision, the rounding and overflowhandling will be handled at assignment to Signal.next
+
+#
+# Food for thought:
+#----------------------
+# * Initialization:
+#    When a floating-point-value is used as init-value, the shift-value is used to create a stored-integer-value. In this
+#    process the nearest integer is taken, thus a round-to-nearest scheme is used.
+# * Division:
+#    In principle divisions are not defined for integers (and therefore also not for fixed-point-numbers), because N/K
+#    does not result in an integer for all N and K combinations.
+#    Python makes a distinction between a true-division and a floor-division. A true-division is what we normally use in
+#    a mathematical operations in the real-world. The floor-division rounds the true-division to the integer
+#    closest to -infinity.
+# * Fraction-length and Word-length
+#    the fraction-length equals -shift. The word-length is not known by the fixbv, since no overflow or quantization
+#    will be performed. All operations are don in infinite precision and therefore overflow-handling and quantization
+#    are not needed.
+
+
+def alignvalues(a, b):
+    # Example: a=100*2^10, b=10*2^2
+    # After alignment, the values become: a' = 25600 * 2^2 and b'=b
+    # This operation must happen without loss of resolution, which means that all values must remain integer at all time.
+
+    assert isinstance(a, tuple) and len(a) == 2, 'It is assumed that the first input it a tuple of length 2'
+    assert isinstance(b, tuple) and len(b) == 2, 'It is assumed that the second input it a tuple of length 2'
+    a_val = a[0]
+    a_shift = a[1]
+    b_val = b[0]
+    b_shift = b[1]
+
+    if a_shift >= b_shift:
+        diff_shift = a_shift - b_shift
+        a_val = a_val * 2**diff_shift
+        a_shift = b_shift
+        return (a_val, a_shift),(b_val, b_shift)
+    else:
+        b, a = alignvalues(b, a)
+        return a, b
+
+def calc_nr_bits(val):
+    if val == 0:
+        a = 0
+        nrbits = long(0)        # A bit arbitrary value; I chose to use same behavior as bit_length()-function
+    elif val < 0:
+        a = len(bin(val))
+        nrbits = long(ceil(log(-val, 2)) + 1)
+    else:
+        a = len(bin(val)) + 1
+        nrbits = long(ceil(log(val + 1, 2)) + 1)
+    return nrbits
+
+def fixbvstr_from_tuple(si, shift):
+    return '%d * 2^%d' % (si, shift)
+
 class fixbv(object):
     #__slots__ = ('_val', '_min', '_max', '_nrbits', '_handleBounds')
-    
-    def __init__(self, val, shift, min=None, max=None, _nrbits=0):
-        if _nrbits:
-            self._min = 0
-            self._max = 2**_nrbits
-        else:
-            if isinstance(min, float):
-                self._min = int(floor(min*2**(-shift) + 0.5))
-            else:
-                self._min = min
-            if isinstance(max, float):
-                self._max = int(floor(max*2**(-shift) + 0.5))
-            else:
-                self._max = max
-            if self._max is not None and self._min is not None:
-                if self._min >= 0:
-                    _nrbits = len(bin(self._max-1))
-                elif self._max <= 1:
-                    _nrbits = len(bin(self._min))
-                else:
-                    # make sure there is a leading zero bit in positive numbers
-                    _nrbits = builtins.max(len(bin(self._max-1))+1, len(bin(self._min)))
-        if isinstance(val, float):
-            self._val = int(floor(val*2**(-shift) + 0.5))
-            self._shift = shift
-        elif isinstance(val, integer_types):
-            self._val = val
-            self._shift = shift
-        elif isinstance(val, string_types):
-            mval = val.replace('_', '')
-            self._val = long(mval, 2)
-            _nrbits = len(mval)
-            self._shift = shift
-        elif isinstance(val, fixbv):
-            self._val = val._val*2**(val._shift-shift)
-            self._min = val._min
-            self._max = val._max
-            self._shift = val._shift
-            _nrbits = val._nrbits
-        elif isinstance(val, intbv):
-            self._val = val._val
-            self._min = val._min
-            self._max = val._max
-            self._shift = shift
-            _nrbits = val._nrbits
-        else:
-            raise TypeError("fixbv constructor arg should be inbv, int or string")
-        self._nrbits = _nrbits
-        self._handleBounds()
-        
-    # support for the 'min' and 'max' attribute
+
+    # attributes of this class
+    # -------------------------------------------------------------------------------------------------------------------
+    _val = 0
+    _shift = 0
+    _min = None
+    _max = None
+    # _nrbits = 0
+
+    # Properties of this class
+    # -------------------------------------------------------------------------------------------------------------------
     @property
-    def max(self):
-        return self._max
+    def maxfloat(self):
+        return self.maxsi * 2**self.shift
 
     @property
-    def min(self):
-        return self._min
+    def minfloat(self):
+        return self.minsi * 2**self.shift
 
-    @property
-    def shift(self):
+    def getsi(self):
+        return self._val
+    def setsi(self, val):
+        self._val = long(val)
+    si = property(getsi, setsi)
+
+    def getshift(self):
         return self._shift
+    def setshift(self, shift):
+        self._shift = long(shift)
+    shift = property(getshift, setshift)
+
+    def getfractionlength(self):
+        return -self._shift
+    fractionlength = property(getfractionlength)
+
+    def getminsi(self):
+        return self._min
+    def setminsi(self, minsi):
+        self._min = long(minsi)
+    minsi = property(getminsi, setminsi)
+
+    def getmaxsi(self):
+        return self._max
+    def setmaxsi(self, maxsi):
+        self._max = long(maxsi)
+    maxsi = property(getmaxsi, setmaxsi)
+
+    def getnrbits(self):
+        if self.minsi is None:
+            return 0
+        else:
+            NrBitsMin = calc_nr_bits(self.minsi)
+            NrBitsMax = calc_nr_bits(self.maxsi-1)
+            return max(NrBitsMin, NrBitsMax)
+    nrbits = property(getnrbits)
+
+    def __init__(self, val=0, shift=0, min=None, max=None, rawinit=True):
+        # INPUT:
+        # OUTPUT:
+        assert (min is None and max is None) or (min is not None and max is not None), 'Expected either min AND max equal to None or min and max not equal to None'
+        if not rawinit:
+            assert False, 'To be implemented'
+            # self.shift = -shift
+            # self.val = floor(val * 2**(-self.shift) + 0.5)
+            # if min is not None:
+            #     self.minsi = floor(min * 2**(-self.shift) + 0.5)
+            # if max is not None:
+            #     assert min < max, 'Exptected min < max, but got min=%.15e and max=%.15e instead' % (min, max)
+            #     self.maxsi = floor(max * 2**(-self.shift) + 0.5)
+        else:
+            self.shift = shift
+            self.si = long(val)
+            if min is not None:
+                self.minsi = min
+            if max is not None:
+                assert min < max, 'Exptected min < max, but got min=%d and max=%d instead' % (min, max)
+                self.maxsi = max
+
+        # if _nrbits:
+        #     self._min = 0
+        #     self._max = 2**_nrbits
+        # else:
+        #     if isinstance(min, float):
+        #         self._min = long(floor(min*2**(-shift) + 0.5))
+        #     elif isinstance(min, tuple):
+        #         # align with shift-value of val, then store min-value
+        #
+        #         self._min = min
+        #     # elif
+        #
+        #     if isinstance(max, float):
+        #         self._max = int(floor(max*2**(-shift) + 0.5))
+        #     else:
+        #         self._max = max
+        #     if self._max is not None and self._min is not None:
+        #         if self._min >= 0:
+        #             _nrbits = len(bin(self._max-1))
+        #         elif self._max <= 1:
+        #             _nrbits = len(bin(self._min))
+        #         else:
+        #             # make sure there is a leading zero bit in positive numbers
+        #             _nrbits = builtins.max(len(bin(self._max-1))+1, len(bin(self._min)))
+        # if isinstance(val, float):
+        #     self._val = int(floor(val*2**(-shift) + 0.5))
+        #     self._shift = shift
+        # elif isinstance(val, integer_types):
+        #     self._val = val
+        #     self._shift = shift
+        # elif isinstance(val, string_types):
+        #     mval = val.replace('_', '')
+        #     self._val = long(mval, 2)
+        #     _nrbits = len(mval)
+        #     self._shift = shift
+        # elif isinstance(val, fixbv):
+        #     self._val = val._val*2**(val._shift-shift)
+        #     self._min = val._min
+        #     self._max = val._max
+        #     self._shift = val._shift
+        #     _nrbits = val._nrbits
+        # elif isinstance(val, intbv):
+        #     self._val = val._val
+        #     self._min = val._min
+        #     self._max = val._max
+        #     self._shift = shift
+        #     _nrbits = val._nrbits
+        # else:
+        #     raise TypeError("fixbv constructor arg should be inbv, int or string")
+        # self._nrbits = _nrbits
+        self._handleBounds()
 
     #
     # function : _isfixbv
@@ -114,29 +266,27 @@ class fixbv(object):
     #            o float
     #
     def align(self, other):
-        if isinstance(other, float):
-            val = int(floor(other*2**-self.shift + 0.5))
-        elif isinstance (other, integer_types):
-            val = int(other*2**-self.shift)
-        elif isinstance (other, intbv):
-            val = other._val
-        elif isinstance (other, fixbv):
-            val = other._val*2**(other._shift-self.shift)
+        # This function aligns the fixbv 'self' and 'other', such that they have the same shift factor.
+        # The function returns two fixbv-objects.
+        if isinstance(other, fixbv):
+            a = (self.si, self.shift)
+            b = (other.si, other.shift)
+            (c, d) = alignvalues(a, b)
+            x = fixbv(c[0], c[1])
+            y = fixbv(d[0], d[1])
+            return (x, y)
         else:
-            TypeError("fixbv align arg should be float, int, intbv or fixbv")
-        return val
-            
+            raise TypeError("fixbv align arg should be fixbv")
+
     def _handleBounds(self):
-        if self._max is not None:
-            val = self._val*2**self._shift
-            if val >= self._max:
-                raise ValueError("fixbv value {} ({}) >= maximum {} ({})".format(
-                    val, val*2**self._shift, self._max, self._max*2**self._shift))
-        if self._min is not None:
-            if val < self._min:
-                raise ValueError("fixbv value %s < minimum %s" %
-                                 (val, self._min))
-                
+        # either _min AND _max are None, or both are not None
+        if  self.maxsi is not None and self.minsi is not None:
+            if (self.minsi > self.si) or (self.si >= self.maxsi):
+                Ssi = fixbvstr_from_tuple(self.si, self.shift)
+                Smin = fixbvstr_from_tuple(self.minsi, self.shift)
+                Smax = fixbvstr_from_tuple(self.maxsi, self.shift)
+                raise ValueError("Value %s out of range [%s, %s>" % (Ssi, Smin, Smax))
+
     def _hasFullRange(self):
         min, max = self._min, self._max
         if max <= 0:
@@ -145,41 +295,31 @@ class fixbv(object):
             return False
         return max & max-1 == 0
 
-
     # hash
     def __hash__(self):
         raise TypeError("fixbv objects are unhashable")
         
     # copy methods
     def __copy__(self):
-        c = type(self)(self._val, self._shift)
-        c._min = self._min
-        c._max = self._max
-        c._nrbits = self._nrbits
+        c = type(self)(self.si, self.shift, self.minsi, self.maxsi)
         return c
-
-    def __deepcopy__(self, visit):
-        c = type(self)(self._val, self._shift)
-        c._min = self._min
-        c._max = self._max
-        c._nrbits = self._nrbits
-        return c
+    __deepcopy__ = __copy__
 
     # iterator method
     def __iter__(self):
-        if not self._nrbits:
+        if not self.nrbits:
             raise TypeError("Cannot iterate over unsized fixbv")
-        return iter([self[i+self._shift] for i in range(self._nrbits-1, -1, -1)])
+        return iter([self[i+self.shift] for i in range(self.nrbits-1, -1, -1)])
 
     # logical testing
     def __bool__(self):
-        return bool(self._val)
+        return bool(self.getsi)
 
     __nonzero__ = __bool__
 
     # length
     def __len__(self):
-        return self._nrbits
+        return self.nrbits
 
     # indexing and slicing methods
 
@@ -533,95 +673,76 @@ class fixbv(object):
         else:
             return type(self)(~self._val)
     
-    def __int__(self):
-        return int(self._val)
-        
-    def __long__(self):
-        return long(self._val)
-
-    def __float__(self):
-        return float(self._val)
-
-    # XXX __complex__ seems redundant ??? (complex() works as such?)
-    
-    def __oct__(self):
-        return oct(self._val)
-    
-    def __hex__(self):
-        return hex(self._val)
-
     def __index__(self):
-        return int(self._val)
+        return int(self)
         
     # comparisons
     def __eq__(self, other):
+        # Only fixbv's can be compared in full-precision.
+        # Other types are converted to fixbv first.
         if self._isfixbv(other):
-            return self._val*2**self._shift == other._val*2**self._shift
-        elif isinstance(other, intbv):
-            return self._val*2**self._shift == other._val
+            (c, d) = self.align(other)
+            return (c.si == d.si) and (c.shift == d.shift)
         else:
-            return self._val*2**self._shift == other
+            other_fixbv = fixbv(other)  # convert to fixbv
+            return self == other_fixbv
 
     def __ne__(self, other):
-        if self._isfixbv(other):
-            return self._val*2**self._shift != other._val*2**self._shift
-        elif isinstance(other, intbv):
-            return self._val*2**self._shift != other._val
-        else:
-            return self._val*2**self._shift != other
+        return not self == other
 
     def __lt__(self, other):
         if self._isfixbv(other):
-            return self._val*2**self._shift < other._val*2**self._shift
-        elif isinstance(other, intbv):
-            return self._val*2**self._shift < other._val
+            (c, d) = self.align(other)
+            return c.si < d.si
         else:
-            return self._val*2**self._shift < other
+            other_fixbv = fixbv(other)
+            return self < other_fixbv
 
     def __le__(self, other):
         if self._isfixbv(other):
-            return self._val*2**self._shift <= other._val*2**self._shift
-        elif isinstance(other, intbv):
-            return self._val*2**self._shift <= other._val
+            (c, d) = self.align(other)
+            return c.si <= d.si
         else:
-            return self._val*2**self._shift <= other
+            other_fixbv = fixbv(other)
+            return self <= other_fixbv
 
     def __gt__(self, other):
-        if self._isfixbv(other):
-            return self._val*2**self._shift > other._val*2**self._shift
-        elif isinstance(other, intbv):
-            return self._val*2**self._shift > other._val
-        else:
-            return self._val*2**self._shift > other
+        return not self <= other
 
     def __ge__(self, other):
-        if self._isfixbv(other):
-            return self._val*2**self._shift >= other._val*2**self._shift
-        elif isinstance(other, intbv):
-            return self._val*2**self._shift >= other._val
-        else:
-            return self._val*2**self._shift >= other
-
+        return not self < other
 #---------------------------------------------------------------------------------------------------
 #                                       representation
 #---------------------------------------------------------------------------------------------------
-    #
-    # function : __float__
-    # brief    : convert the 
+    # XXX __complex__ seems redundant ??? (complex() works as such?)
+    
     def __float__(self):
-        return float(self._val*2.0**self._shift)
+        return float(self.si*2**self.shift)
 
     def __int__(self):
-        return int(self._val)
+        return int(self.si*2**self.shift)
+    
+    def __long__(self):
+        return long(self.si*2**self.shift)
+
+    def __oct__(self):
+        return oct(int(self))
+
+    def __hex__(self):
+        return hex(int(self))
 
     def __str__(self):
-        return str(self._val*2.0**self._shift)
-
+        S = fixbvstr_from_tuple(self.si, self.shift)
+        return S
+    
     def __repr__(self):
-        return "fixbv({} , {}, min={}, max={}, nrbits={})".format(
-            repr(self._val), repr(self._shift), repr(self._min), 
-            repr(self._max), repr(self._nrbits))
-
+        if self.minsi is None:
+            return "fixbv({})".format(str(self))
+        else:
+            return "fixbv({}, min={}, max={}, nrbits={})".format(str(self),
+                                                                        fixbvstr_from_tuple(self.minsi, self.shift),
+                                                                        fixbvstr_from_tuple(self.maxsi, self.shift),
+                                                                        repr(self.nrbits))
 
     def signed(self):
       ''' return integer with the signed value of the intbv instance
@@ -681,3 +802,10 @@ class fixbv(object):
       return retVal
 
 #-- end of file '_fixbv.py' ------------------------------------------------------------------------
+
+if __name__ == "__main__":
+    a = fixbv(1, 28)
+    b = fixbv(2**28, 0)
+    (c,d) = a.align(b)
+    print c
+    print d
