@@ -434,13 +434,16 @@ class fixbv(object):
         #     val = self.si - other*2**(-self.shift)
         #     return fixbv(val, self.shift)
 
-    __radd__ = __add__
-    # def __rsub__(self, other):
-    #     if isinstance(other, intbv):
-    #         val = -self.si + other._val*2**(-self.shift)
-    #     else:
-    #         val = -self.si + other*2**(-self.shift)
-    #     return fixbv(val, self.shift)
+    #__rsub__ = __sub__
+    def __rsub__(self, other):
+        # other will never be a fixbv, therefore cast it to s fixbv and subtract again.
+        x = fixbv(other)
+        return x - self
+        # if isinstance(other, intbv):
+        #     val = -self.si + other._val*2**(-self.shift)
+        # else:
+        #     val = -self.si + other*2**(-self.shift)
+        # return fixbv(val, self.shift)
 
     def __mul__(self, other):
         if self._isfixbv(other):
@@ -672,13 +675,13 @@ class fixbv(object):
         return result
 
     def __neg__(self):
-        return -self.si
+        return fixbv(-self.si, self.shift)
 
     def __pos__(self):
-        return self.si
+        return fixbv(self.si, self.shift)
 
     def __abs__(self):
-        return abs(self.si)
+        return fixbv(abs(self.si), self.shift)
 
     def __invert__(self):
         if self.nrbits and self.minsi >= 0:
