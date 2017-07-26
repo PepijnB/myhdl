@@ -567,21 +567,21 @@ class fixbv(object):
     #------------------------------------------------------------------------------
     def __and__(self, other):
         raise TypeError("unsupported operand type(s) for &: 'fixbv' and '%s'" % type(other))
-
-    def __rand__ (self, other):
-        raise TypeError("unsupported operand type(s) for &: 'fixbv' and '%s'" % type(other))
-
-    def __or__(self, other):
-        raise TypeError("unsupported operand type(s) for |: 'fixbv' and '%s'" % type(other))
-
-    def __ror__(self, other):
-        raise TypeError("unsupported operand type(s) for |: '%s' and 'fixbv'" % type(other))
-
-    def __xor__(self, other):
-        raise TypeError("unsupported operand type(s) for ^: 'fixbv' and '%s'" % type(other))
-
-    def __rxor__(self, other):
-        raise TypeError("unsupported operand type(s) for ^: '%s' and 'fixbv'" % type(other))
+    #
+    # def __rand__ (self, other):
+    #     raise TypeError("unsupported operand type(s) for &: 'fixbv' and '%s'" % type(other))
+    #
+    # def __or__(self, other):
+    #     raise TypeError("unsupported operand type(s) for |: 'fixbv' and '%s'" % type(other))
+    #
+    # def __ror__(self, other):
+    #     raise TypeError("unsupported operand type(s) for |: '%s' and 'fixbv'" % type(other))
+    #
+    # def __xor__(self, other):
+    #     raise TypeError("unsupported operand type(s) for ^: 'fixbv' and '%s'" % type(other))
+    #
+    # def __rxor__(self, other):
+    #     raise TypeError("unsupported operand type(s) for ^: '%s' and 'fixbv'" % type(other))
 
     def __lshift__(self, other):
         if self._isfixbv(other):
@@ -611,23 +611,23 @@ class fixbv(object):
         x = fixbv(other)
         return x >> self
 
-    def __iand__(self, other):
-        # FIXME: change implementation, because result should be stored in self (not in 'result')
-        result = self.__and__(other)
-        result._handleBounds()
-        return result
-
-    def __ior__(self, other):
-        # FIXME: change implementation, because result should be stored in self (not in 'result')
-        result = self.__or__(other)
-        result._handleBounds()
-        return result
-
-    def __ixor__(self, other):
-        # FIXME: change implementation, because result should be stored in self (not in 'result')
-        result = self.__xor__(other)
-        result._handleBounds()
-        return result
+    # def __iand__(self, other):
+    #     # FIXME: change implementation, because result should be stored in self (not in 'result')
+    #     result = self.__and__(other)
+    #     result._handleBounds()
+    #     return result
+    #
+    # def __ior__(self, other):
+    #     # FIXME: change implementation, because result should be stored in self (not in 'result')
+    #     result = self.__or__(other)
+    #     result._handleBounds()
+    #     return result
+    #
+    # def __ixor__(self, other):
+    #     # FIXME: change implementation, because result should be stored in self (not in 'result')
+    #     result = self.__xor__(other)
+    #     result._handleBounds()
+    #     return result
 
     def __ilshift__(self, other):
         # FIXME: change implementation, because result should be stored in self (not in 'result')

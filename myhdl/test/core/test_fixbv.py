@@ -786,13 +786,16 @@ class TestFixbvArithmetic:
 
 class TestFixbvBitOperations:
     def testAnd_fixbv(self):
-        for k in xrange(1000):
-            a = generate_random_valid_fixbv_storedinteger(maxval=2**30, maxshift=3, includemin=False, includemax=False)
-            b = generate_random_valid_fixbv_storedinteger(maxval=2**30, maxshift=3, includemin=False, includemax=False)
-            c = a+b
-            c_float = float(a) + float(b)
-            assert(float(c) == c_float)
-#
+        a = fixbv(10,2)
+        b = fixbv(12,4)
+        with pytest.raises(TypeError):      # test implementation of __and__
+            c = a & b
+        with pytest.raises(TypeError):      # test implementation of __rand__
+            c = 10 & a
+
+    # TODO: add testcases for OR and XOR
+
+
     def testLShift(self):
         # test with fixbv as shiftfactor
         a = fixbv(1,-5)
