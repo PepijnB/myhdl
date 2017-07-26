@@ -483,17 +483,15 @@ class fixbv(object):
         
     def __mod__(self, other):
         if self._isfixbv(other):
-            return float(self.si*2**self.shift) % float(other._val*2**other._shift)
-        if isinstance(other, intbv):
-            return float(self.si*2**self.shift) % float(other._val)
+            (c,d) = self.align(other)
+            return fixbv(c.si % d.si, c.shift)
         else:
-            return float(self.si*2**self.shift) % float(other)
+            x = fixbv(other)
+            return self % x
 
     def __rmod__(self, other):
-        if isinstance(other, intbv):
-            return float(other._val) % float(self.si*2**self.shift)
-        else:
-            return float(other) % float(self.si*2**self.shift)
+        x = fixbv(other)
+        return x % self
 
     def __pow__(self, other):
         # other must be an integer value
@@ -568,13 +566,10 @@ class fixbv(object):
     #                          BITWISE OPERATIONS
     #------------------------------------------------------------------------------
     def __and__(self, other):
-        if hasattr(other, '_shift') or isinstance(other, intbv):
-            return type(self)(self.si & other._val, self.shift)
-        else:
-            return type(self)(self.si & other, self.shift)
-            
-    def __rand__(self, other):
-        return type(self)(other & self.si, self.shift)
+        raise TypeError("unsupported operand type(s) for &: 'fixbv' and '%s'" % type(other))
+
+    def __rand__ (self, other):
+        raise TypeError("unsupported operand type(s) for &: 'fixbv' and '%s'" % type(other))
 
     def __or__(self, other):
         raise TypeError("unsupported operand type(s) for |: 'fixbv' and '%s'" % type(other))
@@ -583,71 +578,38 @@ class fixbv(object):
         raise TypeError("unsupported operand type(s) for |: '%s' and 'fixbv'" % type(other))
 
     def __xor__(self, other):
-        if hasattr(other, '_shift') or isinstance(other, intbv):
-            return type(self)(self.si ^ other._val, self.shift)
-        else:
-            return type(self)(self.si ^ other, self.shift)
+        raise TypeError("unsupported operand type(s) for ^: 'fixbv' and '%s'" % type(other))
 
     def __rxor__(self, other):
-        return type(self)(other ^ self.si, self.shift)
+        raise TypeError("unsupported operand type(s) for ^: '%s' and 'fixbv'" % type(other))
 
     def __lshift__(self, other):
         if self._isfixbv(other):
-            shift = float(other._val*2**self.shift)
-            if (shift % 1.0) != 0:
-                raise TypeError("Cannot shift value by an None-integer type")
-            return fixbv(self.si, self.shift+int(shift))
-        elif isinstance(other, intbv):
-            shift = float(other._val)
-            if (shift % 1.0) != 0:
-                raise TypeError("Cannot shift value by an None-integer type")
-            return fixbv(self.si, self.shift+int(other._val))
+            if other.is_integer():
+                return fixbv(self.si, self.shift + long(other))
+            else:
+                raise TypeError("Cannot shift value by an none-integer value")
         else:
-            shift = float(other)
-            if (shift % 1.0) != 0:
-                raise TypeError("Cannot shift value by an None-integer type")
-            return fixbv(self.si, self.shift+int(other))
+            x = fixbv(other)
+            return self << x
 
     def __rlshift__(self, other):
-        if isinstance(other, intbv):
-            shift = float(self.si * 2 ** self.shift)
-            if (shift % 1.0) != 0:
-                raise TypeError("Cannot shift value by an None-integer type")
-            return other._val << int(shift)
-        else:
-            shift = float(self.si * 2 ** self.shift)
-            if (shift % 1.0) != 0:
-                raise TypeError("Cannot shift value by an None-integer type")
-            return other << int(shift)
+        x = fixbv(other)
+        return x << self
 
     def __rshift__(self, other):
         if self._isfixbv(other):
-            shift = float(other._val * 2 ** self.shift)
-            if (shift % 1.0) != 0:
-                raise TypeError("Cannot shift value by an None-integer type")
-            return fixbv(self.si, self.shift - int(shift))
-        elif isinstance(other, intbv):
-            shift = float(other._val)
-            if (shift % 1.0) != 0:
-                raise TypeError("Cannot shift value by an None-integer type")
-            return fixbv(self.si, self.shift - int(other._val))
+            if other.is_integer():
+                return fixbv(self.si, self.shift - long(other))
+            else:
+                raise TypeError("Cannot shift value by an none-integer value")
         else:
-            shift = float(other)
-            if (shift % 1.0) != 0:
-                raise TypeError("Cannot shift value by an None-integer type")
-            return fixbv(self.si, self.shift - int(other))
+            x = fixbv(other)
+            return self >> x
 
     def __rrshift__(self, other):
-        if isinstance(other, intbv):
-            shift = float(self.si * 2 ** self.shift)
-            if (shift % 1.0) != 0:
-                raise TypeError("Cannot shift value by an None-integer type")
-            return other._val >> int(shift)
-        else:
-            shift = float(self.si * 2 ** self.shift)
-            if (shift % 1.0) != 0:
-                raise TypeError("Cannot shift value by an None-integer type")
-            return other >> int(shift)
+        x = fixbv(other)
+        return x >> self
 
     def __iand__(self, other):
         # FIXME: change implementation, because result should be stored in self (not in 'result')
@@ -817,10 +779,24 @@ class fixbv(object):
 #-- end of class '_fixbv.py' ------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    import random
-    for k in xrange(10):
-        val = random.randint(-2**31, 2**31)
-        N = random.randint(-31, 31)
-        a = fixbv(val, N)
-        print '%s / %s = %.15f' % (a, a, a/a)
-        assert (a / a == 1)
+    # import random
+    # for k in xrange(10):
+    #     val = random.randint(-2**31, 2**31)
+    #     N = random.randint(-31, 31)
+    #     a = fixbv(val, N)
+    #     print '%s / %s = %.15f' % (a, a, a/a)
+    #     assert (a / a == 1)
+
+    a = fixbv(11, -3)
+    b = fixbv(1, -2)
+
+    (c, d) = a.align(b)
+
+    print c
+    print d
+
+    # c = a % b
+    # print c
+    # print float(a)
+    # print float(b)
+    # print float(a) % float(b)

@@ -32,19 +32,18 @@ import pytest
 
 from myhdl._compat import integer_types, long
 from myhdl import intbv
-from imp import load_module
-# load_module()
-
-# from imp import find_module
-# find_module('fixbv', 'D:\Projects\myhdl-imec\myhdl')
 
 import sys
 sys.path.append('D:\Projects\myhdl-imec\myhdl')
 from _fixbv import fixbv
-from _fixbv import alignvalues
 
 random.seed(2)  # random, but deterministic
 maxint = sys.maxsize
+
+# TODO:
+# * test getitem, setitem
+# * Test or, ror, invert, and other bitwise operations
+# * test oct, bin, hex functions
 
 def generate_random_valid_fixbv_storedinteger(maxval=2 ** 99, maxshift=31, includemin=False, includemax=False):
     val = random.randint(-maxval, maxval - 1)
@@ -412,16 +411,64 @@ class TestFixbvArithmetic:
             a.shift = abs(a.shift)      # Make sure shift is positive, such that casting to long will result in no rounding errors
             b = generate_random_valid_fixbv_storedinteger(maxval=2 ** 99, maxshift=31, includemin=False, includemax=False)
             b.shift = abs(b.shift)
+            b = long(b)
 
             c = a // b
             d = long(a) // long(b)
             assert (long(c) == d)
-    #TODO:
-    # * test getitem, setitem
-    # * Test or, ror, invert, and other bitwise operations
-    # * Test (r)floordiv, (r)mod, etc
-    # * test (r)rshift, (r)shift
-    # * test oct, bin, hex functions
+
+            e = b // a      # test rfloordiv
+            f = b // long(a)
+            assert (long(e) == f)
+
+    def testMod_fixbv(self):
+        for k in xrange(10):        # check for fixbv containing just integers
+            a = generate_random_valid_fixbv_storedinteger(maxval=2 ** 99, maxshift=0, includemin=False, includemax=False)
+            b = generate_random_valid_fixbv_storedinteger(maxval=2 ** 99, maxshift=0, includemin=False, includemax=False)
+
+            c = a % b
+            d = long(a) % long(b)
+            assert(long(c) == d)
+        for k in xrange(1000):        # check for 'small' numbers that fit in a float
+            a = generate_random_valid_fixbv_storedinteger(maxval=2 ** 40, maxshift=10, includemin=False, includemax=False)
+            b = generate_random_valid_fixbv_storedinteger(maxval=2 ** 40, maxshift=10, includemin=False, includemax=False)
+
+            c = a % b
+            d = float(a) % float(b)
+            assert(float(c) == d)
+
+    def testMod_long(self):
+        for k in xrange(10):        # check for fixbv containing just integers
+            a = generate_random_valid_fixbv_storedinteger(maxval=2 ** 99, maxshift=0, includemin=False, includemax=False)
+            b = long(generate_random_valid_fixbv_storedinteger(maxval=2 ** 99, maxshift=0, includemin=False, includemax=False))
+
+            c = a % b
+            d = long(a) % long(b)
+            assert(long(c) == d)
+
+            # Test __rmod__
+            e = b % a
+            f = long(b) % long(a)
+            assert (long(e) == f)
+        for k in xrange(1000):        # check for 'small' numbers that fit in a float
+            a = generate_random_valid_fixbv_storedinteger(maxval=2 ** 40, maxshift=10, includemin=False, includemax=False)
+            b = generate_random_valid_fixbv_storedinteger(maxval=2 ** 40, maxshift=10, includemin=False, includemax=False)
+            b.shift = abs(b.shift)
+            b = long(b)
+
+            c = a % b
+            d = float(a) % float(b)
+            assert(float(c) == d)
+
+            # Test __rmod__
+            e = b % a
+            f = float(b) % float(a)
+            assert (float(e) == f)
+
+    @pytest.mark.xfail(reason='Conversion from float is not implemented correctly yet')
+    def testMod_long(self):
+        # No implementation yet, because it will fail anyway
+        assert(False)
 
     @pytest.mark.xfail(reason='Conversion from float is not implemented correctly yet')
     def testAdd_float(self):
@@ -737,7 +784,59 @@ class TestFixbvArithmetic:
 #
     # def testSub(self)
 
+class TestFixbvBitOperations:
+    def testAnd_fixbv(self):
+        for k in xrange(1000):
+            a = generate_random_valid_fixbv_storedinteger(maxval=2**30, maxshift=3, includemin=False, includemax=False)
+            b = generate_random_valid_fixbv_storedinteger(maxval=2**30, maxshift=3, includemin=False, includemax=False)
+            c = a+b
+            c_float = float(a) + float(b)
+            assert(float(c) == c_float)
 #
+    def testLShift(self):
+        # test with fixbv as shiftfactor
+        a = fixbv(1,-5)
+        largeShiftFactor = fixbv(2**99 + 1, 0)          # cannot be represented, without loss of accuracy, by float
+        b = a << largeShiftFactor
+        assert(b.si == a.si)
+        assert(b.shift == a.shift + long(largeShiftFactor))
+
+        # test with long as shiftfactor
+        a = fixbv(1,10)
+        largeShiftFactor = -2**99 + 1          # cannot be represented, without loss of accuracy, by float
+        b = a << largeShiftFactor
+        assert(b.si == a.si)
+        assert(b.shift == a.shift + largeShiftFactor)
+
+        # test __rlshift__
+        a = fixbv(-2**99+1,0)
+        largeShiftFactor = fixbv(-2**199 + 1, 0)          # cannot be represented, without loss of accuracy, by float
+        b = a << largeShiftFactor
+        assert(b.si == a.si)
+        assert(b.shift == long(largeShiftFactor))
+
+    def testRShift(self):
+        # test with fixbv as shiftfactor
+        a = fixbv(1,-5)
+        largeShiftFactor = fixbv(2**99 + 1, 0)          # cannot be represented, without loss of accuracy, by float
+        b = a >> largeShiftFactor
+        assert(b.si == a.si)
+        assert(b.shift == a.shift - long(largeShiftFactor))
+
+        # test with long as shiftfactor
+        a = fixbv(1,10)
+        largeShiftFactor = -2**99 + 1          # cannot be represented, without loss of accuracy, by float
+        b = a >> largeShiftFactor
+        assert(b.si == a.si)
+        assert(b.shift == a.shift - largeShiftFactor)
+
+        # test __rlshift__
+        a = fixbv(-2**99+1,0)
+        largeShiftFactor = fixbv(-2**199 + 1, 0)          # cannot be represented, without loss of accuracy, by float
+        b = a >> largeShiftFactor
+        assert(b.si == a.si)
+        assert(b.shift == -long(largeShiftFactor))
+
 # def getItem(s, i):
 #     ext = '0' * (i-len(s)+1)
 #     exts = ext + s
