@@ -19,6 +19,7 @@
 
 """ Run the fixbv unit tests. """
 from __future__ import absolute_import
+from __future__ import division
 
 import operator
 import random
@@ -45,33 +46,34 @@ from _fixbv import alignvalues
 random.seed(2)  # random, but deterministic
 maxint = sys.maxsize
 
-class TestFixbvInit:
+def generate_random_valid_fixbv_storedinteger(maxval=2 ** 99, maxshift=31, includemin=False, includemax=False):
+    val = random.randint(-maxval, maxval - 1)
+    if maxshift==0:
+        shift =0
+    else:
+        shift = random.randint(-maxshift, maxshift - 1)
+    if includemin:
+        if val-1 <= -maxval:
+            min = -maxval
+        else:
+            min = random.randint(-maxval, val - 1)
+    else:
+        min = None
+    if includemax:
+        if val+1 >= maxval-1:
+            max = maxval-1
+        else:
+            max = random.randint(val + 1, maxval - 1)
+    else:
+        max = None
+    a = fixbv(val, shift, min, max, rawinit=True)
+    # print repr(a)
+    return a
+
+class TestFixbvGeneric:
     def testDefaultValue(self):
         a = fixbv()
         assert a == 0         # Same behavior as intbv()
-
-    def testNEq_fixbv(self):
-        # Verify == and != implementation
-        for k in xrange(1000):
-            a = generate_random_valid_fixbv_storedinteger(maxval=2**99, maxshift=31, includemin=True, includemax=True)
-            assert(a == a)
-            assert(not(a!=a))
-
-    def testGTLE_fixbv(self):
-        # Verify == and != implementation
-        for k in xrange(1000):
-            a = generate_random_valid_fixbv_storedinteger(maxval=2**99, maxshift=31, includemin=True, includemax=True)
-            b = a + 1
-            assert(b > a)
-            assert(not(b <= a))
-
-    def testLTGE_fixbv(self):
-        # Verify == and != implementation
-        for k in xrange(1000):
-            a = generate_random_valid_fixbv_storedinteger(maxval=2**99, maxshift=31, includemin=True, includemax=True)
-            b = a - 1
-            assert(b < a)
-            assert(not(b >= a))
 
     def testGenerateRandomValidFixbvStoredInteger(self):
         shiftMax = 31
@@ -93,6 +95,7 @@ class TestFixbvInit:
             b = generate_random_valid_fixbv_storedinteger(maxval=valMax, maxshift=shiftMax, includemin=True, includemax=True)
             (c, d) = a.align(b)
             assert c==a or d==b
+            assert c.shift == d.shift
 
     def testCalcNrBits(self):
         a = fixbv(0, 0, min=-4, max=4, rawinit=True)        #min and max give same number of bits
@@ -144,74 +147,96 @@ class TestFixbvInit:
         a.si = valMax + 100
         a._handleBounds         # No error is expected, because nothing is checked
 
-    def testAdd_fixbv(self):
-        # test with 'small' numbers, that will fit within the mantissa of a floating point number
-        for k in xrange(1000):
-            a = generate_random_valid_fixbv_storedinteger(maxval=2**30, maxshift=3, includemin=False, includemax=False)
-            b = generate_random_valid_fixbv_storedinteger(maxval=2**30, maxshift=3, includemin=False, includemax=False)
-            c = a+b
-            c_float = float(a) + float(b)
-            assert(float(c) == c_float)
+    @pytest.mark.xfail(reason='Is_integer function only works well for small numbers at this moment')
+    def testIsInteger(self):
+        a = fixbv(15, -31)
+        assert (a.is_integer() == False)
+        a = fixbv(15, 0)
+        assert (a.is_integer() == True)
+        a = fixbv(2**99 + 1, -31)
+        assert(a.is_integer() == False)
 
-    def testAdd_int(self):
-        # test with 'small' numbers, that will fit within the mantissa of a floating point number
-        for k in xrange(1000):
-            a = generate_random_valid_fixbv_storedinteger(maxval=2**30, maxshift=3, includemin=False, includemax=False)
-            b = random.randint(-2**30, 2**30 - 1)
-            c = a+b
-            d = b+a #//test radd
-            c_float = float(a) + float(b)
-            assert(float(c) == c_float)
-            assert(c == d)
+    @pytest.mark.xfail(reason='values will be different, due to rounding/underflow/overflow errors')
+    def testAlignValues_intbv(self):
+        shiftMax = 31
+        valMax = 2 ** 99
+        for k in xrange(10):
+            # Pick a random value/shift combination
+            a = generate_random_valid_fixbv_storedinteger(maxval=valMax, maxshift=shiftMax, includemin=True, includemax=True)
+            b = intbv(random.randint(-valMax, valMax - 1))
+            (c, d) = a.align(b)
+            assert c == a or d == b
 
-    def testSub_fixbv(self):
-        # test with 'small' numbers, that will fit within the mantissa of a floating point number
-        for k in xrange(1000):
-            a = generate_random_valid_fixbv_storedinteger(maxval=2 ** 30, maxshift=3, includemin=False,
-                                                          includemax=False)
-            b = generate_random_valid_fixbv_storedinteger(maxval=2 ** 30, maxshift=3, includemin=False,
-                                                          includemax=False)
-            c = a - b
-            c_float = float(a) - float(b)
-            assert (float(c) == c_float)
+    @pytest.mark.xfail(reason='values will be different, due to rounding/underflow/overflow errors')
+    def testAlignValues_int(self):
+        shiftMax = 31
+        valMax = 2 ** 99
+        for k in xrange(10):
+            # Pick a random value/shift combination
+            a = generate_random_valid_fixbv_storedinteger(maxval=valMax, maxshift=shiftMax, includemin=True,
+                                                          includemax=True)
+            b = int(random.randint(-valMax, valMax - 1))
+            (c, d) = a.align(b)
+            assert c == a or d == b
 
-    def testSub_int(self):
-        # test with 'small' numbers, that will fit within the mantissa of a floating point number
-        for k in xrange(1000):
-            a = generate_random_valid_fixbv_storedinteger(maxval=2 ** 30, maxshift=3, includemin=False,
-                                                          includemax=False)
-            b = random.randint(-2 ** 30, 2 ** 30 - 1)
-            c = a - b
-            d = b - a
-            c_float = float(a) - float(b)
-            assert (float(c) == c_float)
-            assert (c == -d)
+    @pytest.mark.xfail(reason='values will be different, due to rounding/underflow errors')
+    def testAlignValues_long(self):
+        shiftMax = 31
+        valMax = 2 ** 99
+        for k in xrange(10):
+            # Pick a random value/shift combination
+            a = generate_random_valid_fixbv_storedinteger(maxval=valMax, maxshift=shiftMax, includemin=True,
+                                                          includemax=True)
+            b = long(random.randint(-valMax, valMax - 1))
+            (c, d) = a.align(b)
+            assert c == a or d == b
 
-    @pytest.mark.xfail(reason='Conversion from float is not implemented correctly yet')
-    def testAdd_float(self):
-        # test with 'small' numbers, that will fit within the mantissa of a floating point number
-        for k in xrange(1000):
-            a = generate_random_valid_fixbv_storedinteger(maxval=2**30, maxshift=3, includemin=False, includemax=False)
-            b = float(generate_random_valid_fixbv_storedinteger(maxval=2**30, maxshift=3, includemin=False, includemax=False))
-            c = a+b
-            d = b+a
-            c_float = float(a) + b
-            assert(float(c) == c_float)
-            assert(c == d)
+    @pytest.mark.xfail(reason='values will be different, due to rounding/underflow/overflow errors')
+    def testAlignValues_float(self):
+        shiftMax = 31
+        valMax = 2 ** 99
+        for k in xrange(10):
+            # Pick a random value/shift combination
+            a = generate_random_valid_fixbv_storedinteger(maxval=valMax, maxshift=shiftMax, includemin=True,
+                                                          includemax=True)
+            b = float(random.randint(-valMax, valMax - 1))
+            (c, d) = a.align(b)
+            assert c == a or d == b
 
-    @pytest.mark.xfail(reason='Conversion from float is not implemented correctly yet')
-    def testSub_float(self):
-        # test with 'small' numbers, that will fit within the mantissa of a floating point number
+class TestFixbvCast:
+    def testBool(self):
+        a = fixbv(0, 0, min=-4, max=4, rawinit=True)
+        assert(bool(a) == bool(0))                      # check same behavior as integer
+
+        a = fixbv(1, 0, min=-7, max=4, rawinit=True)
+        assert (bool(a) == bool(1))                     # check same behavior as integer
+
+        a = fixbv(-1, 0, min=-7, max=4, rawinit=True)
+        assert (bool(a) == bool(-1))                    # check same behavior as integer
+
+class TestFixbvCompare:
+    def testNEq_fixbv(self):
+        # Verify == and != implementation
         for k in xrange(1000):
-            a = generate_random_valid_fixbv_storedinteger(maxval=2 ** 30, maxshift=3, includemin=False,
-                                                          includemax=False)
-            b = float(generate_random_valid_fixbv_storedinteger(maxval=2 ** 30, maxshift=3, includemin=False,
-                                                                includemax=False))
-            c = a - b
-            d = b - a
-            c_float = float(a) + b
-            assert (float(c) == c_float)
-            assert(c == -d)
+            a = generate_random_valid_fixbv_storedinteger(maxval=2**99, maxshift=31, includemin=True, includemax=True)
+            assert(a == a)
+            assert(not(a!=a))
+
+    def testGTLE_fixbv(self):
+        # Verify == and != implementation
+        for k in xrange(1000):
+            a = generate_random_valid_fixbv_storedinteger(maxval=2**99, maxshift=31, includemin=True, includemax=True)
+            b = a + 1
+            assert(b > a)
+            assert(not(b <= a))
+
+    def testLTGE_fixbv(self):
+        # Verify == and != implementation
+        for k in xrange(1000):
+            a = generate_random_valid_fixbv_storedinteger(maxval=2**99, maxshift=31, includemin=True, includemax=True)
+            b = a - 1
+            assert(b < a)
+            assert(not(b >= a))
 
     @pytest.mark.xfail(reason='overflow, underflow and rounding errors will cause mismatch between numbers')
     def testNEq_intbv(self):
@@ -265,74 +290,178 @@ class TestFixbvInit:
             assert(b == a)
             assert (not (b != a))
 
-    @pytest.mark.xfail(reason='values will be different, due to rounding/underflow/overflow errors')
-    def testAlignValues_intbv(self):
-        shiftMax = 31
-        valMax = 2 ** 99
-        for k in xrange(10):
-            # Pick a random value/shift combination
-            a = generate_random_valid_fixbv_storedinteger(maxval=valMax, maxshift=shiftMax, includemin=True, includemax=True)
-            b = intbv(random.randint(-valMax, valMax - 1))
-            (c, d) = a.align(b)
-            assert c == a or d == b
+class TestFixbvArithmetic:
+    def testAdd_fixbv(self):
+        # test with 'small' numbers, that will fit within the mantissa of a floating point number
+        for k in xrange(1000):
+            a = generate_random_valid_fixbv_storedinteger(maxval=2**30, maxshift=3, includemin=False, includemax=False)
+            b = generate_random_valid_fixbv_storedinteger(maxval=2**30, maxshift=3, includemin=False, includemax=False)
+            c = a+b
+            c_float = float(a) + float(b)
+            assert(float(c) == c_float)
 
-    @pytest.mark.xfail(reason='values will be different, due to rounding/underflow/overflow errors')
-    def testAlignValues_int(self):
-        shiftMax = 31
-        valMax = 2 ** 99
-        for k in xrange(10):
-            # Pick a random value/shift combination
-            a = generate_random_valid_fixbv_storedinteger(maxval=valMax, maxshift=shiftMax, includemin=True,
-                                                          includemax=True)
-            b = int(random.randint(-valMax, valMax - 1))
-            (c, d) = a.align(b)
-            assert c == a or d == b
+    def testAdd_int(self):
+        # test with 'small' numbers, that will fit within the mantissa of a floating point number
+        for k in xrange(1000):
+            a = generate_random_valid_fixbv_storedinteger(maxval=2**30, maxshift=3, includemin=False, includemax=False)
+            b = random.randint(-2**30, 2**30 - 1)
+            c = a+b
+            d = b+a #//test radd
+            c_float = float(a) + float(b)
+            assert(float(c) == c_float)
+            assert(c == d)
 
-    @pytest.mark.xfail(reason='values will be different, due to rounding/underflow errors')
-    def testAlignValues_long(self):
-        shiftMax = 31
-        valMax = 2 ** 99
-        for k in xrange(10):
-            # Pick a random value/shift combination
-            a = generate_random_valid_fixbv_storedinteger(maxval=valMax, maxshift=shiftMax, includemin=True,
-                                                          includemax=True)
-            b = long(random.randint(-valMax, valMax - 1))
-            (c, d) = a.align(b)
-            assert c == a or d == b
+    def testSub_fixbv(self):
+        # test with 'small' numbers, that will fit within the mantissa of a floating point number
+        for k in xrange(1000):
+            a = generate_random_valid_fixbv_storedinteger(maxval=2 ** 30, maxshift=3, includemin=False,
+                                                          includemax=False)
+            b = generate_random_valid_fixbv_storedinteger(maxval=2 ** 30, maxshift=3, includemin=False,
+                                                          includemax=False)
+            c = a - b
+            c_float = float(a) - float(b)
+            assert (float(c) == c_float)
 
-    @pytest.mark.xfail(reason='values will be different, due to rounding/underflow/overflow errors')
-    def testAlignValues_float(self):
-        shiftMax = 31
-        valMax = 2 ** 99
-        for k in xrange(10):
-            # Pick a random value/shift combination
-            a = generate_random_valid_fixbv_storedinteger(maxval=valMax, maxshift=shiftMax, includemin=True,
-                                                          includemax=True)
-            b = float(random.randint(-valMax, valMax - 1))
-            (c, d) = a.align(b)
-            assert c == a or d == b
+    def testSub_int(self):
+        # test with 'small' numbers, that will fit within the mantissa of a floating point number
+        for k in xrange(1000):
+            a = generate_random_valid_fixbv_storedinteger(maxval=2 ** 30, maxshift=3, includemin=False,
+                                                          includemax=False)
+            b = random.randint(-2 ** 30, 2 ** 30 - 1)
+            c = a - b
+            d = b - a
+            c_float = float(a) - float(b)
+            assert (float(c) == c_float)
+            assert (c == -d)
 
-def generate_random_valid_fixbv_storedinteger(maxval=2 ** 99, maxshift=31, includemin=False, includemax=False):
-    val = random.randint(-maxval, maxval - 1)
-    shift = random.randint(-maxshift, maxshift - 1)
-    if includemin:
-        if val-1 <= -maxval:
-            min = -maxval
-        else:
-            min = random.randint(-maxval, val - 1)
-    else:
-        min = None
-    if includemax:
-        if val+1 >= maxval-1:
-            max = maxval-1
-        else:
-            max = random.randint(val + 1, maxval - 1)
-    else:
-        max = None
-    a = fixbv(val, shift, min, max, rawinit=True)
-    # print repr(a)
-    return a
+    def testMul_fixbv(self):
+        # test with 'small' numbers, that will fit within the mantissa of a floating point number
+        for k in xrange(1000):
+            a = generate_random_valid_fixbv_storedinteger(maxval=2 ** 30, maxshift=3, includemin=False,
+                                                          includemax=False)
+            b = generate_random_valid_fixbv_storedinteger(maxval=2 ** 17, maxshift=3, includemin=False,
+                                                          includemax=False)
+            c = a * b
+            c_float = float(a) * float(b)
+            assert (float(c) == c_float)
 
+    def testMul_int(self):
+        # test with 'small' numbers, that will fit within the mantissa of a floating point number
+        for k in xrange(1000):
+            a = generate_random_valid_fixbv_storedinteger(maxval=2 ** 30, maxshift=3, includemin=False,
+                                                          includemax=False)
+            b = random.randint(-2 ** 20, 2 ** 20 - 1)
+            c = a * b
+            d = b * a
+            c_float = float(a) * float(b)
+            assert (float(c) == c_float)
+            assert(c == d)
+
+    def testPow(self):
+        N = random.randint(-99, 99)
+        a = fixbv(15, -31)
+        b = fixbv(N, 0)
+        aN = fixbv(15**N, -31 * N)
+        assert (a**N == aN)
+        assert (a**float(N) == aN)
+        assert (a**b == aN)
+        with pytest.raises(TypeError):
+            a**float(N+0.1)
+        with pytest.raises(TypeError):
+            b**a
+
+        # Test rpow-function
+        # TODO: Implement rpow function and its tests
+        with pytest.raises(NotImplementedError):
+            N ** a
+
+    def testTrueDiv_fixbv(self):
+        a = generate_random_valid_fixbv_storedinteger(maxval=2 ** 99, maxshift=31, includemin=False,
+                                                          includemax=False)
+        with pytest.raises(NotImplementedError):
+            c = a / a
+
+        with pytest.raises(NotImplementedError):
+            c = 1 / a
+
+    def testFloorDiv_fixbv(self):
+        #TODO: work in progress
+        for k in xrange(100):
+            a = generate_random_valid_fixbv_storedinteger(maxval=2 ** 99, maxshift=31, includemin=False, includemax=False)
+            c = a // a
+            assert(c == 1)
+        for k in xrange(100):       # Test with shift=0
+            a = generate_random_valid_fixbv_storedinteger(maxval=2 ** 99, maxshift=0, includemin=False, includemax=False)
+            b = generate_random_valid_fixbv_storedinteger(maxval=2 ** 99, maxshift=0, includemin=False, includemax=False)
+
+            c = a // b
+            d = long(a) // long(b)
+            assert(long(c) == d)
+        for k in xrange(100):       # test 'small', arbitrary numbers, which fit fully in a floating point (also after division).
+            a = generate_random_valid_fixbv_storedinteger(maxval=2 ** 20, maxshift=31, includemin=False, includemax=False)
+            b = generate_random_valid_fixbv_storedinteger(maxval=2 ** 20, maxshift=31, includemin=False, includemax=False)
+
+            c = a // b
+            d = float(a) // float(b)
+            assert(float(c) == d)
+
+    def testFloorDiv_long(self):
+        # TODO: work in progress
+        for k in xrange(100):
+            a = generate_random_valid_fixbv_storedinteger(maxval=2 ** 99, maxshift=31, includemin=False, includemax=False)
+            a.shift = abs(a.shift)      # Make sure shift is positive, such that casting to long will result in no rounding errors
+            b = generate_random_valid_fixbv_storedinteger(maxval=2 ** 99, maxshift=31, includemin=False, includemax=False)
+            b.shift = abs(b.shift)
+
+            c = a // b
+            d = long(a) // long(b)
+            assert (long(c) == d)
+    #TODO:
+    # * test getitem, setitem
+    # * Test or, ror, invert, and other bitwise operations
+    # * Test (r)floordiv, (r)mod, etc
+    # * test (r)rshift, (r)shift
+    # * test oct, bin, hex functions
+
+    @pytest.mark.xfail(reason='Conversion from float is not implemented correctly yet')
+    def testAdd_float(self):
+        # test with 'small' numbers, that will fit within the mantissa of a floating point number
+        for k in xrange(1000):
+            a = generate_random_valid_fixbv_storedinteger(maxval=2**30, maxshift=3, includemin=False, includemax=False)
+            b = float(generate_random_valid_fixbv_storedinteger(maxval=2**30, maxshift=3, includemin=False, includemax=False))
+            c = a+b
+            d = b+a
+            c_float = float(a) + b
+            assert(float(c) == c_float)
+            assert(c == d)
+
+    @pytest.mark.xfail(reason='Conversion from float is not implemented correctly yet')
+    def testSub_float(self):
+        # test with 'small' numbers, that will fit within the mantissa of a floating point number
+        for k in xrange(1000):
+            a = generate_random_valid_fixbv_storedinteger(maxval=2 ** 30, maxshift=3, includemin=False,
+                                                          includemax=False)
+            b = float(generate_random_valid_fixbv_storedinteger(maxval=2 ** 30, maxshift=3, includemin=False,
+                                                                includemax=False))
+            c = a - b
+            d = b - a
+            c_float = float(a) + b
+            assert (float(c) == c_float)
+            assert(c == -d)
+
+    @pytest.mark.xfail(reason='Conversion from float is not implemented correctly yet')
+    def testMul_float(self):
+        # test with 'small' numbers, that will fit within the mantissa of a floating point number
+        for k in xrange(1000):
+            a = generate_random_valid_fixbv_storedinteger(maxval=2 ** 30, maxshift=3, includemin=False,
+                                                          includemax=False)
+            b = float(generate_random_valid_fixbv_storedinteger(maxval=2 ** 17, maxshift=3, includemin=False,
+                                                          includemax=False))
+            c = a * b
+            d = b * a
+            c_float = float(a) * float(b)
+            assert (float(c) == c_float)
+            assert (c == d)
 
     # def testInit_correct(self):
     #     val = []
