@@ -21,16 +21,16 @@
 from __future__ import absolute_import
 from __future__ import division
 
-import operator
+# import operator
 import random
-import sys
-from copy import copy, deepcopy
-from random import randrange
-from math import floor, ceil, log
+# import sys
+from copy import copy
+# from random import randrange
+# from math import floor, ceil, log
 
 import pytest
 
-from myhdl._compat import integer_types, long
+from myhdl._compat import long
 from myhdl import intbv
 
 import sys
@@ -41,10 +41,15 @@ random.seed(2)  # random, but deterministic
 maxint = sys.maxsize
 
 # TODO:
+# HI PRIO
 # * test getitem, setitem
 # * Test invert
 # * test oct, bin, hex functions
 # * Test signed
+# * Implement iadd, isub, imul, ifloordiv, itruediv, imod and their tests
+# * test abs
+# LOW PRIO
+# * implement rpow and its tests
 
 def generate_random_valid_fixbv_storedinteger(maxval=2 ** 99, maxshift=31, includemin=False, includemax=False):
     val = random.randint(-maxval, maxval - 1)
@@ -374,6 +379,9 @@ class TestFixbvArithmetic:
         # TODO: Implement rpow function and its tests
         with pytest.raises(NotImplementedError):
             N ** a
+
+        with pytest.raises(TypeError):      # Test that ipow function is not implemented
+            a ^= N
 
     def testTrueDiv_fixbv(self):
         a = generate_random_valid_fixbv_storedinteger(maxval=2 ** 99, maxshift=31, includemin=False,

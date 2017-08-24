@@ -203,57 +203,6 @@ class fixbv(object):
             if max is not None:
                 assert min < max, 'Exptected min < max, but got min=%d and max=%d instead' % (min, max)
                 self.maxsi = max
-
-        # if _nrbits:
-        #     self.minsi = 0
-        #     self.maxsi = 2**_nrbits
-        # else:
-        #     if isinstance(min, float):
-        #         self.minsi = long(floor(min*2**(-shift) + 0.5))
-        #     elif isinstance(min, tuple):
-        #         # align with shift-value of val, then store min-value
-        #
-        #         self.minsi = min
-        #     # elif
-        #
-        #     if isinstance(max, float):
-        #         self.maxsi = int(floor(max*2**(-shift) + 0.5))
-        #     else:
-        #         self.maxsi = max
-        #     if self.maxsi is not None and self.minsi is not None:
-        #         if self.minsi >= 0:
-        #             _nrbits = len(bin(self.maxsi-1))
-        #         elif self.maxsi <= 1:
-        #             _nrbits = len(bin(self.minsi))
-        #         else:
-        #             # make sure there is a leading zero bit in positive numbers
-        #             _nrbits = builtins.max(len(bin(self.maxsi-1))+1, len(bin(self.minsi)))
-        # if isinstance(val, float):
-        #     self.si = int(floor(val*2**(-shift) + 0.5))
-        #     self.shift = shift
-        # elif isinstance(val, integer_types):
-        #     self.si = val
-        #     self.shift = shift
-        # elif isinstance(val, string_types):
-        #     mval = val.replace('_', '')
-        #     self.si = long(mval, 2)
-        #     _nrbits = len(mval)
-        #     self.shift = shift
-        # elif isinstance(val, fixbv):
-        #     self.si = val._val*2**(val._shift-shift)
-        #     self.minsi = val._min
-        #     self.maxsi = val._max
-        #     self.shift = val._shift
-        #     _nrbits = val._nrbits
-        # elif isinstance(val, intbv):
-        #     self.si = val._val
-        #     self.minsi = val._min
-        #     self.maxsi = val._max
-        #     self.shift = shift
-        #     _nrbits = val._nrbits
-        # else:
-        #     raise TypeError("fixbv constructor arg should be inbv, int or string")
-        # self.nrbits = _nrbits
         self._handleBounds()
 
     #
@@ -503,7 +452,7 @@ class fixbv(object):
                 raise TypeError('Second argument must be an integer value')
         elif not isinstance(other, intbv) and not isinstance(other, integer_types):
             raise TypeError('Second argument must be an integer value')
-        powerval = int(other)
+        powerval = long(other)
         return fixbv(self.si**powerval, self.shift * powerval)
 
     def __rpow__(self, other):
@@ -542,14 +491,6 @@ class fixbv(object):
     def __imod__(self, other):
         # FIXME: change implementation, because result should be stored in self (not in 'result')
         result = self.__mod__(other)
-        result._handleBounds()
-        return result
-
-    def __ipow__(self, other, modulo=None):
-        # FIXME: change implementation, because result should be stored in self (not in 'result')
-        # XXX why 3rd param required?
-        # unused but needed in 2.2, not in 2.3
-        result = self.__pow__(other)
         result._handleBounds()
         return result
 
