@@ -565,23 +565,12 @@ class fixbv(object):
     #------------------------------------------------------------------------------
     #                          BITWISE OPERATIONS
     #------------------------------------------------------------------------------
-    def __and__(self, other):
-        raise TypeError("unsupported operand type(s) for &: 'fixbv' and '%s'" % type(other))
-    #
-    # def __rand__ (self, other):
-    #     raise TypeError("unsupported operand type(s) for &: 'fixbv' and '%s'" % type(other))
-    #
-    # def __or__(self, other):
-    #     raise TypeError("unsupported operand type(s) for |: 'fixbv' and '%s'" % type(other))
-    #
-    # def __ror__(self, other):
-    #     raise TypeError("unsupported operand type(s) for |: '%s' and 'fixbv'" % type(other))
-    #
-    # def __xor__(self, other):
-    #     raise TypeError("unsupported operand type(s) for ^: 'fixbv' and '%s'" % type(other))
-    #
-    # def __rxor__(self, other):
-    #     raise TypeError("unsupported operand type(s) for ^: '%s' and 'fixbv'" % type(other))
+    # The functions AND, OR and XOR will not be implemented, because the functionality highly depends on the users expectation:
+    # * Some users might expect the function to operate on the stored integer
+    # * Some users might expect the function to operate on the RW-value
+    # To avoid confusion, it is better to let the user decide what to do:
+    # * get the stored integers and apply the function
+    # * Cast to a long (with possible quantization effects) and apply the function
 
     def __lshift__(self, other):
         if self._isfixbv(other):
@@ -611,35 +600,33 @@ class fixbv(object):
         x = fixbv(other)
         return x >> self
 
-    # def __iand__(self, other):
-    #     # FIXME: change implementation, because result should be stored in self (not in 'result')
-    #     result = self.__and__(other)
-    #     result._handleBounds()
-    #     return result
-    #
-    # def __ior__(self, other):
-    #     # FIXME: change implementation, because result should be stored in self (not in 'result')
-    #     result = self.__or__(other)
-    #     result._handleBounds()
-    #     return result
-    #
-    # def __ixor__(self, other):
-    #     # FIXME: change implementation, because result should be stored in self (not in 'result')
-    #     result = self.__xor__(other)
-    #     result._handleBounds()
-    #     return result
-
     def __ilshift__(self, other):
-        # FIXME: change implementation, because result should be stored in self (not in 'result')
-        result = self.__lshift__(other)
-        result._handleBounds()
-        return result
+        # The ilshift will operate on the si itself. Because of this, there might be rounding errors
+        if self._isfixbv(other):
+            if other.is_integer():
+                self.si = long(self.si << long(other))
+            else:
+                raise TypeError("Cannot shift value by an none-integer value")
+        else:
+            x = fixbv(other)
+            self <<= x
+
+        self._handleBounds()
+        return self
 
     def __irshift__(self, other):
-        # FIXME: change implementation, because result should be stored in self (not in 'result')
-        result = self.__rshift__(other)
-        result._handleBounds()
-        return result
+        # The irshift will operate on the si itself. Because of this, there might be rounding errors
+        if self._isfixbv(other):
+            if other.is_integer():
+                self.si = long(self.si >> long(other))
+            else:
+                raise TypeError("Cannot shift value by an none-integer value")
+        else:
+            x = fixbv(other)
+            self >>= x
+
+        self._handleBounds()
+        return self
 
     def __invert__(self):
         if self.nrbits and self.minsi >= 0:

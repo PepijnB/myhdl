@@ -42,8 +42,9 @@ maxint = sys.maxsize
 
 # TODO:
 # * test getitem, setitem
-# * Test or, ror, invert, and other bitwise operations
+# * Test invert
 # * test oct, bin, hex functions
+# * Test signed
 
 def generate_random_valid_fixbv_storedinteger(maxval=2 ** 99, maxshift=31, includemin=False, includemax=False):
     val = random.randint(-maxval, maxval - 1)
@@ -792,9 +793,28 @@ class TestFixbvBitOperations:
             c = a & b
         with pytest.raises(TypeError):      # test implementation of __rand__
             c = 10 & a
+        with pytest.raises(TypeError):      # test implementation of __iand__
+            a = a & b
 
-    # TODO: add testcases for OR and XOR
+    def testOr_fixbv(self):
+        a = fixbv(10, 2)
+        b = fixbv(12, 4)
+        with pytest.raises(TypeError):  # test implementation of __or__
+            c = a | b
+        with pytest.raises(TypeError):  # test implementation of __ror__
+            c = 10 | a
+        with pytest.raises(TypeError):  # test implementation of __ior__
+            a = a | b
 
+    def testXor_fixbv(self):
+        a = fixbv(10, 2)
+        b = fixbv(12, 4)
+        with pytest.raises(TypeError):  # test implementation of __xor__
+            c = a ^ b
+        with pytest.raises(TypeError):  # test implementation of __rxor__
+            c = 10 ^ a
+        with pytest.raises(TypeError):  # test implementation of __ixor__
+            a = a ^ b
 
     def testLShift(self):
         # test with fixbv as shiftfactor
@@ -806,7 +826,7 @@ class TestFixbvBitOperations:
 
         # test with long as shiftfactor
         a = fixbv(1,10)
-        largeShiftFactor = -2**99 + 1          # cannot be represented, without loss of accuracy, by float
+        largeShiftFactor = -2**99 + 1                   # cannot be represented, without loss of accuracy, by float
         b = a << largeShiftFactor
         assert(b.si == a.si)
         assert(b.shift == a.shift + largeShiftFactor)
@@ -814,9 +834,24 @@ class TestFixbvBitOperations:
         # test __rlshift__
         a = fixbv(-2**99+1,0)
         largeShiftFactor = fixbv(-2**199 + 1, 0)          # cannot be represented, without loss of accuracy, by float
-        b = a << largeShiftFactor
+        b = long(a) << largeShiftFactor
         assert(b.si == a.si)
         assert(b.shift == long(largeShiftFactor))
+
+        # test __ilshift__
+        a = fixbv(-15,0, -256, 255)
+        b = copy(a)
+        smallShiftFactor = 3
+        a <<= smallShiftFactor
+        assert(a.si == b.si << smallShiftFactor)
+        assert(b.shift == a.shift)
+        assert(b.maxsi == a.maxsi)
+        assert(b.minsi == a.minsi)
+
+        # Check handlebounds execution
+        a = fixbv(-15,0, -16, 15)
+        with pytest.raises(ValueError):
+            a <<= smallShiftFactor
 
     def testRShift(self):
         # test with fixbv as shiftfactor
@@ -836,9 +871,21 @@ class TestFixbvBitOperations:
         # test __rlshift__
         a = fixbv(-2**99+1,0)
         largeShiftFactor = fixbv(-2**199 + 1, 0)          # cannot be represented, without loss of accuracy, by float
-        b = a >> largeShiftFactor
+        b = long(a) >> largeShiftFactor
         assert(b.si == a.si)
         assert(b.shift == -long(largeShiftFactor))
+
+        # test __irshift__
+        a = fixbv(-15, 0, -256, 255)
+        b = copy(a)
+        smallShiftFactor = 3
+        a >>= smallShiftFactor
+        print long(b.si >> smallShiftFactor)
+        print a.si
+        assert (a.si == long(b.si >> smallShiftFactor))
+        assert (b.shift == a.shift)
+        assert (b.maxsi == a.maxsi)
+        assert (b.minsi == a.minsi)
 
 # def getItem(s, i):
 #     ext = '0' * (i-len(s)+1)
