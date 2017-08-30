@@ -166,7 +166,6 @@ class TestFixbvGeneric:
         a = fixbv(2**99 + 1, -31)           # Check for very large number
         assert(a.is_integer() == False)
 
-    @pytest.mark.xfail(reason='values will be different, due to rounding/underflow/overflow errors')
     def testAlignValues_intbv(self):
         shiftMax = 31
         valMax = 2 ** 99
@@ -177,7 +176,6 @@ class TestFixbvGeneric:
             (c, d) = a.align(b)
             assert c == a or d == b
 
-    @pytest.mark.xfail(reason='values will be different, due to rounding/underflow/overflow errors')
     def testAlignValues_int(self):
         shiftMax = 31
         valMax = 2 ** 99
@@ -189,7 +187,6 @@ class TestFixbvGeneric:
             (c, d) = a.align(b)
             assert c == a or d == b
 
-    @pytest.mark.xfail(reason='values will be different, due to rounding/underflow errors')
     def testAlignValues_long(self):
         shiftMax = 31
         valMax = 2 ** 99
@@ -201,17 +198,18 @@ class TestFixbvGeneric:
             (c, d) = a.align(b)
             assert c == a or d == b
 
-    @pytest.mark.xfail(reason='values will be different, due to rounding/underflow/overflow errors')
-    def testAlignValues_float(self):
-        shiftMax = 31
-        valMax = 2 ** 99
-        for k in xrange(10):
-            # Pick a random value/shift combination
-            a = generate_random_valid_fixbv_storedinteger(maxval=valMax, maxshift=shiftMax, includemin=True,
-                                                          includemax=True)
-            b = float(random.randint(-valMax, valMax - 1))
-            (c, d) = a.align(b)
-            assert c == a or d == b
+    # TODO: I'm not so sure that it makes sense to run this test
+    # @pytest.mark.xfail(reason='values will be different, due to rounding/underflow/overflow errors')
+    # def testAlignValues_float(self):
+    #     shiftMax = 31
+    #     valMax = 2 ** 99
+    #     for k in xrange(10):
+    #         # Pick a random value/shift combination
+    #         a = generate_random_valid_fixbv_storedinteger(maxval=valMax, maxshift=shiftMax, includemin=True,
+    #                                                       includemax=True)
+    #         b = float(random.randint(-valMax, valMax - 1))
+    #         (c, d) = a.align(b)
+    #         assert c == a or d == b
 
 class TestFixbvCast:
     def testBool(self):
@@ -248,11 +246,10 @@ class TestFixbvCompare:
             assert(b < a)
             assert(not(b >= a))
 
-    @pytest.mark.xfail(reason='overflow, underflow and rounding errors will cause mismatch between numbers')
     def testNEq_intbv(self):
         for k in xrange(1000):
-            a = generate_random_valid_fixbv_storedinteger(maxval=2**99, maxshift=31, includemin=True, includemax=True)
-            b = intbv(int(a))
+            a = generate_random_valid_fixbv_storedinteger(maxval=2**99, maxshift=0, includemin=True, includemax=True)
+            b = intbv(long(a))
 
             # check regular order
             assert(a == b)
@@ -261,10 +258,9 @@ class TestFixbvCompare:
             assert(b == a)
             assert (not (b != a))
 
-    @pytest.mark.xfail(reason='overflow, underflow and rounding errors will cause mismatch between numbers')
     def testNEq_int(self):
         for k in xrange(1000):
-            a = generate_random_valid_fixbv_storedinteger(maxval=2**99, maxshift=31, includemin=True, includemax=True)
+            a = generate_random_valid_fixbv_storedinteger(maxval=2**99, maxshift=0, includemin=True, includemax=True)
             b = int(a)            # in this operation there might be rounding errors.
 
             # check regular order
@@ -274,10 +270,9 @@ class TestFixbvCompare:
             assert(b == a)
             assert (not (b != a))
 
-    @pytest.mark.xfail(reason='underflow and rounding errors will cause mismatch between numbers')
     def testNEq_long(self):
         for k in xrange(1000):
-            a = generate_random_valid_fixbv_storedinteger(maxval=2**99, maxshift=31, includemin=True, includemax=True)
+            a = generate_random_valid_fixbv_storedinteger(maxval=2**99, maxshift=0, includemin=True, includemax=True)
             b = long(a)            # in this operation there might be rounding errors.
 
             # check regular order
@@ -422,9 +417,9 @@ class TestFixbvArithmetic:
         # TODO: work in progress
         for k in xrange(100):
             a = generate_random_valid_fixbv_storedinteger(maxval=2 ** 99, maxshift=31, includemin=False, includemax=False)
-            a.shift = abs(a.shift)      # Make sure shift is positive, such that casting to long will result in no rounding errors
+            a._shift = abs(a.shift)      # Make sure shift is positive, such that casting to long will result in no rounding errors
             b = generate_random_valid_fixbv_storedinteger(maxval=2 ** 99, maxshift=31, includemin=False, includemax=False)
-            b.shift = abs(b.shift)
+            b._shift = abs(b.shift)
             b = long(b)
 
             c = a // b
@@ -467,7 +462,7 @@ class TestFixbvArithmetic:
         for k in xrange(1000):        # check for 'small' numbers that fit in a float
             a = generate_random_valid_fixbv_storedinteger(maxval=2 ** 40, maxshift=10, includemin=False, includemax=False)
             b = generate_random_valid_fixbv_storedinteger(maxval=2 ** 40, maxshift=10, includemin=False, includemax=False)
-            b.shift = abs(b.shift)
+            b._shift = abs(b.shift)
             b = long(b)
 
             c = a % b
@@ -478,11 +473,6 @@ class TestFixbvArithmetic:
             e = b % a
             f = float(b) % float(a)
             assert (float(e) == f)
-
-    @pytest.mark.xfail(reason='Conversion from float is not implemented correctly yet')
-    def testMod_long(self):
-        # No implementation yet, because it will fail anyway
-        assert(False)
 
     @pytest.mark.xfail(reason='Conversion from float is not implemented correctly yet')
     def testAdd_float(self):

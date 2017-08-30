@@ -150,9 +150,7 @@ class fixbv(object):
 
     def getshift(self):
         return self._shift
-    def setshift(self, shift):
-        self._shift = long(shift)
-    shift = property(getshift, setshift)
+    shift = property(getshift)
 
     def getfractionlength(self):
         return -self.shift
@@ -196,7 +194,7 @@ class fixbv(object):
             #     assert min < max, 'Exptected min < max, but got min=%.15e and max=%.15e instead' % (min, max)
             #     self.maxsi = floor(max * 2**(-self.shift) + 0.5)
         else:
-            self.shift = shift
+            self._shift = shift
             self.si = long(val)
             if min is not None:
                 self.minsi = min
@@ -238,7 +236,8 @@ class fixbv(object):
             y = fixbv(d[0], d[1])
             return (x, y)
         else:
-            raise TypeError("fixbv align arg should be fixbv")
+            x = fixbv(other)
+            return self.align(x)
 
     def _handleBounds(self):
         # either _min AND _max are None, or both are not None
