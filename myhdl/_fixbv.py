@@ -279,18 +279,18 @@ class fixbv(object):
         return self.nrbits
 
     def is_integer(self):
-        #FIXME: this implementation has precision issues; a = fixbv(2**99+1, -31); a.is_integer() returns True, but should be False
-        # Idea to fix it:
-        #  if shift>=0:
-        #     return True
-        #  else:
-        #     binstr = bin(self.si)
-        #     k = number of LSB's equal to 0
-        #     if k > self.shift     # or >= ??
-        #        return True
-        #     else:
-        #        return False
-        return float(self).is_integer()
+        if self.shift >= 0:
+            return True
+        else:
+            binstr = bin(self.si)
+            binstr_reversed = binstr[::-1]
+            nr_leading_zeros = len(binstr_reversed) - len(binstr_reversed.lstrip('0'))
+            #print "Leading zeros", nr_leading_zeros
+            if nr_leading_zeros + self.shift >= 0:
+                return True
+            else:
+                return False
+
     #------------------------------------------------------------------------------
     #                          INDEXING AND SLICING METHODS
     #------------------------------------------------------------------------------

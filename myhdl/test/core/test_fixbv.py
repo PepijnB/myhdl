@@ -48,6 +48,7 @@ maxint = sys.maxsize
 # * Test signed
 # * Implement iadd, isub, imul, ifloordiv, itruediv, imod and their tests
 # * test abs
+# * implement conversion from float to fixbv
 # LOW PRIO
 # * implement rpow and its tests
 
@@ -152,13 +153,17 @@ class TestFixbvGeneric:
         a.si = valMax + 100
         a._handleBounds         # No error is expected, because nothing is checked
 
-    @pytest.mark.xfail(reason='Is_integer function only works well for small numbers at this moment')
     def testIsInteger(self):
+        a = fixbv(24, -3)                   # 24* 2^-3 = 3 => True
+        assert(a.is_integer() == True)
+        a = fixbv(24, -4)                   # 24* 2^-4 = 1.5 => False
+        assert(a.is_integer() == False)
+
         a = fixbv(15, -31)
         assert (a.is_integer() == False)
         a = fixbv(15, 0)
         assert (a.is_integer() == True)
-        a = fixbv(2**99 + 1, -31)
+        a = fixbv(2**99 + 1, -31)           # Check for very large number
         assert(a.is_integer() == False)
 
     @pytest.mark.xfail(reason='values will be different, due to rounding/underflow/overflow errors')
