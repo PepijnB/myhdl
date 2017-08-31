@@ -47,7 +47,6 @@ maxint = sys.maxsize
 # * test oct, bin, hex functions
 # * Test signed
 # * Implement iadd, isub, imul, ifloordiv, itruediv, imod and their tests
-# * test abs
 # * implement conversion from float to fixbv
 # LOW PRIO
 # * implement rpow and its tests
@@ -473,6 +472,13 @@ class TestFixbvArithmetic:
             e = b % a
             f = float(b) % float(a)
             assert (float(e) == f)
+
+    def testAbs(self):
+        for k in xrange(10):
+            a = generate_random_valid_fixbv_storedinteger(maxval=2**30, maxshift=31, includemin=False, includemax=False)
+            c = abs(a)
+            assert(c.si == abs(a.si))
+            assert (c.shift == a.shift)
 
     @pytest.mark.xfail(reason='Conversion from float is not implemented correctly yet')
     def testAdd_float(self):
