@@ -36,6 +36,7 @@ from myhdl import intbv
 import sys
 sys.path.append('D:\Projects\myhdl-imec\myhdl')
 from _fixbv import fixbv
+from _fixbv import fixbvrw
 
 random.seed(2)  # random, but deterministic
 maxint = sys.maxsize
@@ -71,9 +72,37 @@ def generate_random_valid_fixbv_storedinteger(maxval=2 ** 99, maxshift=31, inclu
             max = random.randint(val + 1, maxval - 1)
     else:
         max = None
-    a = fixbv(val, shift, min, max, rawinit=True)
+    a = fixbv(val, shift, min, max)
     # print repr(a)
     return a
+
+def generate_random_valid_fixbv_realworldvalue(maxval=10.0**8, maxfraclength=31, includemin=False, includemax=False):
+    val = random.uniform(-maxval, maxval)
+    if maxfraclength==0:
+        fraclength = 0
+    else:
+        fraclength = random.randint(-maxfraclength, maxfraclength - 1)
+    if includemin:
+        assert False, 'not implemted yet'
+        # stepsize = 2 ** -fraclength
+        # if val-stepsize <= -maxval:
+        #     min = -maxval
+        # else:
+        #     min = random.uniform(-maxval, val - stepsize)
+    else:
+        min = None
+    if includemax:
+        assert False, 'not implemted yet'
+        # stepsize = 2 ** -fraclength
+        # if val+stepsize >= maxval-stepsize:
+        #     max = maxval-stepsize
+        # else:
+        #     max = random.uniform(val + stepsize, maxval - stepsize)
+    else:
+        max = None
+    a = fixbvrw(val, fraclength, min, max)
+    # print repr(a)
+    return (a, val)
 
 class TestFixbvGeneric:
     def testDefaultValue(self):
@@ -91,6 +120,21 @@ class TestFixbvGeneric:
             assert a.maxsi <= valMax
             assert a.shift <= shiftMax
 
+    def testGenerateRandomValidFixbvRealWorldInteger(self):
+        fraclengthMax = 31
+        valMax = 10**8
+        for k in xrange(1000):
+            # Pick a random value/shift combination
+            (a, floatval) = generate_random_valid_fixbv_realworldvalue(maxval=valMax, maxfraclength=fraclengthMax, includemin=False, includemax=False)
+            # The value of a is different from floatval due to rounding. The difference should be <= LSB/2
+            tolerance = a.eps()/2
+
+            assert abs(float(a) - floatval) <= tolerance
+            assert a.shift <= fraclengthMax
+            # assert a.minfloat <= float(a) < a.maxfloat
+            # assert a.minfloat >= -valMax
+            # assert a.maxfloat <= valMax
+
     def testAlignValues_fixbv(self):
         shiftMax = 31
         valMax = 2**99
@@ -103,27 +147,27 @@ class TestFixbvGeneric:
             assert c.shift == d.shift
 
     def testCalcNrBits(self):
-        a = fixbv(0, 0, min=-4, max=4, rawinit=True)        #min and max give same number of bits
+        a = fixbv(0, 0, min=-4, max=4)        #min and max give same number of bits
         assert a.nrbits == 3
 
-        a = fixbv(0, 0, min=-7, max=4, rawinit=True)        #min is dominant
+        a = fixbv(0, 0, min=-7, max=4)        #min is dominant
         assert a.nrbits == 4
 
-        a = fixbv(0, 0, min=-1, max=4, rawinit=True)        #max is dominant
+        a = fixbv(0, 0, min=-1, max=4)        #max is dominant
         assert a.nrbits == 3
-        a = fixbv(0, 0, min=0, max=4, rawinit=True)         #max is dominant
+        a = fixbv(0, 0, min=0, max=4)         #max is dominant
         assert a.nrbits == 3
 
         # test some other values
-        a = fixbv(0, 0, min=0, max=1, rawinit=True)
+        a = fixbv(0, 0, min=0, max=1)
         assert a.nrbits == 0
-        a = fixbv(0, 0, min=0, max=2, rawinit=True)
+        a = fixbv(0, 0, min=0, max=2)
         assert a.nrbits == 2
 
         # test values larger than what a IEEE double-precision-floating-point can handle in the mantissa
-        a = fixbv(0, 0, min=-2**99, max=1, rawinit=True)
+        a = fixbv(0, 0, min=-2**99, max=1)
         assert a.nrbits == 100
-        a = fixbv(0, 0, min=0, max=2**99, rawinit=True)
+        a = fixbv(0, 0, min=0, max=2**99)
         assert a.nrbits == 100
 
     def testHandleBounds(self):
@@ -212,13 +256,13 @@ class TestFixbvGeneric:
 
 class TestFixbvCast:
     def testBool(self):
-        a = fixbv(0, 0, min=-4, max=4, rawinit=True)
+        a = fixbv(0, 0, min=-4, max=4)
         assert(bool(a) == bool(0))                      # check same behavior as integer
 
-        a = fixbv(1, 0, min=-7, max=4, rawinit=True)
+        a = fixbv(1, 0, min=-7, max=4)
         assert (bool(a) == bool(1))                     # check same behavior as integer
 
-        a = fixbv(-1, 0, min=-7, max=4, rawinit=True)
+        a = fixbv(-1, 0, min=-7, max=4)
         assert (bool(a) == bool(-1))                    # check same behavior as integer
 
 class TestFixbvCompare:

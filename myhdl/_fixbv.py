@@ -181,19 +181,21 @@ class fixbv(object):
     # ------------------------------------------------------------------------------
     #                          GENERIC CLASS-METHODS
     # ------------------------------------------------------------------------------
-    def __init__(self, val=0, shift=0, min=None, max=None, rawinit=True):
-        # INPUT:
-        # OUTPUT:
+    #
+    # function : __init__
+    # brief    : initializes the fixbv
+    # input    :
+    #       val stored-integer value
+    #       shift shift-value
+    #       min minimum-value of the stored-integer
+    #       max maximum-value of the stored-integer
+    def __init__(self, val=0, shift=0, min=None, max=None):
         assert (min is None and max is None) or (min is not None and max is not None), 'Expected either min AND max equal to None or min and max not equal to None'
-        if not rawinit:
-            assert False, 'To be implemented'
-            # self.shift = -shift
-            # self.val = floor(val * 2**(-self.shift) + 0.5)
-            # if min is not None:
-            #     self.minsi = floor(min * 2**(-self.shift) + 0.5)
-            # if max is not None:
-            #     assert min < max, 'Exptected min < max, but got min=%.15e and max=%.15e instead' % (min, max)
-            #     self.maxsi = floor(max * 2**(-self.shift) + 0.5)
+        if isinstance(val, fixbvrw):
+            self._shift = val._shift
+            self._val = val._val
+            self._min = val._min
+            self._max = val._max
         else:
             self._shift = shift
             self.si = long(val)
@@ -216,7 +218,11 @@ class fixbv(object):
             if isinstance(other._val, fixbv):
                 return True
         return False
-        
+
+    def eps(self):
+        # returns the value of 1 LSB, the resolution of the real-world-value
+        return 2**self.shift
+
     #
     # function : align
     # brief    : Align the input variable "val" to the fixbv object. This
@@ -704,9 +710,45 @@ class fixbv(object):
 
       return retVal
 
-#-- end of class '_fixbv.py' ------------------------------------------------------------------------
+#-- end of class 'fixbv' ------------------------------------------------------------------------
+
+# In some situations it is convenient to initialize the fixbv with a real-world-value. Although fixbv could make a
+# distinction cannot make a distinction between 10.0 and 10, it should not draw conclusions of what type of
+# initialization is required based on the type of the initialization value (float or int). Therefore it chosen to
+# create a special class, where only the init-function is different.
+class fixbvrw(fixbv):
+    def __init__(self, val = 0.0, fractionlength = 0, min = None, max = None):
+        # val, min and max are interpreted as real-world-values.
+        # fractionlength indicates the number of fractional bits used and therefore is indicates the resolution of
+        # the fixed-point-value.
+        assert (min is None and max is None) or (min is not None and max is not None), 'Expected either min AND max equal to None or min and max not equal to None'
+        self.si = long(floor(val * 2**fractionlength + 0.5))        # In python 2, 'long' rounds towards 0
+        self._shift = -fractionlength
+        if min is not None:
+            self.minsi = long(floor(min * 2 ** fractionlength + 0.5))
+        if max is not None:
+            assert min < max, 'Exptected min < max, but got min=%d and max=%d instead' % (min, max)
+            self.maxsi = long(floor(max * 2 ** fractionlength + 0.5))
+        self._handleBounds()
 
 if __name__ == "__main__":
+    a = fixbvrw(10, 2, min = None, max = None)
+    b = fixbvrw(10.5, -2, min=None, max=None)
+    c = fixbvrw(42.4 / 4, 2, min=None, max=None)
+    d = fixbvrw(42.5 / 4, 2, min=None, max=None)
+    e = fixbvrw(42.6 / 4, 2, min=None, max=None)
+
+    f = fixbv(a)
+
+    print a
+    print b
+    print c
+    print d
+    print e
+
+    print a == f
+
+
     # import random
     # for k in xrange(10):
     #     val = random.randint(-2**31, 2**31)
