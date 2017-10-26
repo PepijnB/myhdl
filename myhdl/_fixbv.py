@@ -26,7 +26,8 @@ from myhdl._compat import long, integer_types, string_types, builtins
 from myhdl._bin import bin
 from myhdl._intbv import intbv
 
-
+# Introduction
+# -------------------------------------------------------
 # Any fixed-point is a scaled integer, and can therefore be represented by a integer-value and a scaling factor,
 # where the scaling-factor must be a integer-power of 2: scaling-factor = 2^shift, where the shift-factor can be any
 # integer value (positive and negative). The shift factor is related to the fractionlength by the relation:
@@ -62,18 +63,18 @@ from myhdl._intbv import intbv
 #----------------------
 # * Initialization:
 #    When a floating-point-value is used as init-value, the shift-value is used to create a stored-integer-value. In this
-#    process the nearest integer is taken, thus a round-to-nearest scheme is used.
+#    process the nearest integer is taken, thus a round-to-nearest scheme is used. (TODO: to be implemented)
 # * Division:
 #    In principle divisions are not defined for integers (and therefore also not for fixed-point-numbers), because N/K
 #    does not result in an integer for all N and K combinations.
 #    Python makes a distinction between a true-division and a floor-division. A true-division is what we normally use in
 #    a mathematical operations in the real-world. The floor-division rounds the true-division to the integer
-#    closest to -infinity.
+#    closest to -infinity. Because of potential accuracy problems, it is chosen to not implement the true-division and
+#    let the user make the right decisions.
 # * Fraction-length and Word-length
 #    the fraction-length equals -shift. The word-length is not known by the fixbv, since no overflow or quantization
-#    will be performed. All operations are don in infinite precision and therefore overflow-handling and quantization
+#    will be performed. All operations are done in infinite precision and therefore overflow-handling and quantization
 #    are not needed.
-
 
 def alignvalues(a, b):
     # Example: a=100*2^10, b=10*2^2
