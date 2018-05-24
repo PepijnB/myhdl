@@ -34,7 +34,6 @@ from myhdl._compat import long
 from myhdl import intbv
 
 import sys
-sys.path.append('D:\Projects\myhdl-imec\myhdl')
 from _fixbv import fixbv
 from _fixbv import fixbvrw
 

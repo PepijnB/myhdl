@@ -110,7 +110,7 @@ def calc_nr_bits(val):
     return nrbits
 
 def fixbvstr_from_tuple(si, shift):
-    return '%d * 2^%d' % (si, shift)
+    return '%d * 2**%d' % (si, shift)
 
 class fixbv(object):
     #__slots__ = ('_val', '_min', '_max', _shift'_handleBounds')
@@ -269,10 +269,12 @@ class fixbv(object):
         
     # copy methods
     def __copy__(self):
-        c = type(self)(self.si, self.shift, self.minsi, self.maxsi)
+        c = fixbv(self.si, self.shift, self.minsi, self.maxsi)
         return c
 
-    __deepcopy__ = __copy__
+    def __deepcopy__(self, memo):
+        c = fixbv(self.si, self.shift, self.minsi, self.maxsi)
+        return c
 
     # logical testing
     def __bool__(self):
@@ -713,9 +715,9 @@ class fixbv(object):
 #-- end of class 'fixbv' ------------------------------------------------------------------------
 
 # In some situations it is convenient to initialize the fixbv with a real-world-value. Although fixbv could make a
-# distinction cannot make a distinction between 10.0 and 10, it should not draw conclusions of what type of
-# initialization is required based on the type of the initialization value (float or int). Therefore it chosen to
-# create a special class, where only the init-function is different.
+# distinction between 10.0 and 10, it should not draw conclusions of what type of initialization is required
+# based on the type of the initialization value (float or int). Therefore it chosen to create a special class,
+# where only the init-function is different.
 class fixbvrw(fixbv):
     def __init__(self, val = 0.0, fractionlength = 0, min = None, max = None):
         # val, min and max are interpreted as real-world-values.

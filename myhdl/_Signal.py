@@ -145,8 +145,6 @@ class _Signal(object):
         self._shift = 0
         self._numeric = True
         self._printVcd = self._printVcdStr
-        if isinstance(val, fixbv):
-            self._shift = 0
         if isinstance(val, bool):
             self._type = bool
             self._setNextVal = self._setNextBool
@@ -159,7 +157,7 @@ class _Signal(object):
             self._type = fixbv
             self._min = val._min
             self._max = val._max
-            self._nrbits = val._nrbits
+            self._nrbits = val.nrbits
             self._shift = val._shift
             self._setNextVal = self._setNextFixbv
             if self._nrbits:
