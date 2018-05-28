@@ -310,16 +310,17 @@ class _Signal(object):
             raise TypeError("Expected int or intbv, got %s" % type(val))
         self._next = val
 
-    def _setNextFixbv(self, val):
-        if isinstance(val, (fixbv, float)):
-#            self._next.align(val)
-            val = self._next.align(val)
-        elif isinstance(val, intbv):
-            val = val._val 
-        elif not isinstance(val, (integer_types)):
-            raise TypeError("Expected int or intbv, got %s" % type(val))
-        self._next._val = val
-        self._next._handleBounds()
+        def _setNextFixbv(self, val):
+            if isinstance(val, (fixbv, float)):
+                (own, val) = self._next.align(val)
+                assert (own.si, own.shift) == (self.si, self.shift)
+            elif isinstance(val, intbv):
+                val = val._val
+            elif not isinstance(val, (integer_types)):
+                raise TypeError("Expected int or intbv, got %s" % type(val))
+
+            self._next._val = val  # we can use the second argument, because the first argument should always equal self, without modification)
+            self._next._handleBounds()
 
     def _setNextIntbv(self, val):
         if isinstance(val, fixbv):
