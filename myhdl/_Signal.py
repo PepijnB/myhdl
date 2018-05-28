@@ -145,8 +145,6 @@ class _Signal(object):
         self._shift = 0
         self._numeric = True
         self._printVcd = self._printVcdStr
-        if isinstance(val, fixbv):
-            self._shift = 0
         if isinstance(val, bool):
             self._type = bool
             self._setNextVal = self._setNextBool
@@ -159,7 +157,7 @@ class _Signal(object):
             self._type = fixbv
             self._min = val._min
             self._max = val._max
-            self._nrbits = val._nrbits
+            self._nrbits = val.nrbits
             self._shift = val._shift
             self._setNextVal = self._setNextFixbv
             if self._nrbits:
@@ -312,16 +310,17 @@ class _Signal(object):
             raise TypeError("Expected int or intbv, got %s" % type(val))
         self._next = val
 
-    def _setNextFixbv(self, val):
-        if isinstance(val, (fixbv, float)):
-#            self._next.align(val)
-            val = self._next.align(val)
-        elif isinstance(val, intbv):
-            val = val._val 
-        elif not isinstance(val, (integer_types)):
-            raise TypeError("Expected int or intbv, got %s" % type(val))
-        self._next._val = val
-        self._next._handleBounds()
+        def _setNextFixbv(self, val):
+            if isinstance(val, (fixbv, float)):
+                (own, val) = self._next.align(val)
+                assert (own.si, own.shift) == (self.si, self.shift)
+            elif isinstance(val, intbv):
+                val = val._val
+            elif not isinstance(val, (integer_types)):
+                raise TypeError("Expected int or intbv, got %s" % type(val))
+
+            self._next._val = val  # we can use the second argument, because the first argument should always equal self, without modification)
+            self._next._handleBounds()
 
     def _setNextIntbv(self, val):
         if isinstance(val, fixbv):
