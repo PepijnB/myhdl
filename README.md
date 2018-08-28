@@ -1,10 +1,5 @@
-<<<<<<< HEAD
-MyHDL 1.0dev (fixbv extension)
-============
-=======
-MyHDL 0.10 
-==========
->>>>>>> upstream/master
+MyHDL 0.10 (fixbv development branch)
+=====================================
 
 [![Join the chat at https://gitter.im/jandecaluwe/myhdl](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/myhdl/myhdl?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
