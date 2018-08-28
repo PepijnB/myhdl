@@ -18,11 +18,11 @@
 #  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 """ Module with the intbv class """
-from __future__ import absolute_import, division
+
 from math import floor, ceil, log
 import operator
 
-from myhdl._compat import long, integer_types, string_types, builtins
+from myhdl._compat import integer_types, string_types, builtins
 from myhdl._bin import bin
 from myhdl._intbv import intbv
 
@@ -100,28 +100,69 @@ def alignvalues(a, b):
 def calc_nr_bits(val):
     if val == 0:
         a = 0
-        nrbits = long(0)        # A bit arbitrary value; I chose to use same behavior as bit_length()-function
+        nrbits = int(0)        # A bit arbitrary value; I chose to use same behavior as bit_length()-function
     elif val < 0:
         a = len(bin(val))
-        nrbits = long(ceil(log(-val, 2)) + 1)
+        nrbits = int(ceil(log(-val, 2)) + 1)
     else:
         a = len(bin(val)) + 1
-        nrbits = long(ceil(log(val + 1, 2)) + 1)
+        nrbits = int(ceil(log(val + 1, 2)) + 1)
     return nrbits
 
 def fixbvstr_from_tuple(si, shift):
     return '%d * 2**%d' % (si, shift)
 
 class fixbv(object):
+    # ------------------------------------------------------------------------------
+    #                          GENERIC CLASS-METHODS
+    # ------------------------------------------------------------------------------
+    #
+    # function : __init__
+    # brief    : initializes the fixbv
+    # input    :
+    #       val stored-integer value
+    #       shift shift-value
+    #       min minimum-value of the stored-integer
+    #       max maximum-value of the stored-integer
+    def __init__(self, val=0, shift=0, min=None, max=None, asfloat=False):
+        assert (min is None and max is None) or \
+               (min is not None and max is not None), \
+               'Expected either min AND max equal to None or min and max not equal to None'
+        assert isinstance(shift, integer_types), 'shift must be an integer'
+        if isinstance(asfloat, (list, tuple)):
+            self._init_asfloat = bool(asfloat[0])
+            self._print_asfloat = bool(asfloat[1])
+            self._vcd_asfloat = bool(asfloat[2])
+        else:
+            self._init_asfloat = bool(asfloat)
+            self._print_asfloat = bool(asfloat)
+            self._vcd_asfloat = bool(asfloat)
+            self._shift = 0
+            self._val = 0
+            self._min = None
+            self._max = None
+        if isinstance(val, fixbv):
+            self._shift = val._shift
+            self._val = val._val
+            self._min = val._min
+            self._max = val._max
+        else:
+            self._shift = shift
+            self._val = self._cast(val)
+            self._min = self._cast(min)
+            self._max = self._cast(max)
+            if max is not None:
+                assert self._min < self._max, 'Exptected min < max, but got min={} and max={} instead'.format(min, max)
+        self._handleBounds()
     #__slots__ = ('_val', '_min', '_max', _shift'_handleBounds')
 
     # ------------------------------------------------------------------------------
     #                          ATTRIBUTES
     # ------------------------------------------------------------------------------
-    _val = 0            # the stored integer value
-    _shift = 0          # the shift value to obtain a real-world value
-    _min = None
-    _max = None
+    #_val = 0            # the stored integer value
+    #_shift = 0          # the shift value to obtain a real-world value
+    #_min = None
+    #_max = None
 
     # ------------------------------------------------------------------------------
     #                          PROPERTIES
@@ -146,12 +187,12 @@ class fixbv(object):
     def getsi(self):
         return self._val
     def setsi(self, val):
-        self._val = long(val)
+        self._val = int(val)
     si = property(getsi, setsi)
 
     def getshift(self):
         return self._shift
-    shift = property(getshift)
+    shift = property(getshift) # read only!
 
     def getfractionlength(self):
         return -self.shift
@@ -160,13 +201,13 @@ class fixbv(object):
     def getminsi(self):
         return self._min
     def setminsi(self, minsi):
-        self._min = long(minsi)
+        self._min = self._cast(minsi)
     minsi = property(getminsi, setminsi)
 
     def getmaxsi(self):
         return self._max
     def setmaxsi(self, maxsi):
-        self._max = long(maxsi)
+        self._max = self._cast(maxsi)
     maxsi = property(getmaxsi, setmaxsi)
 
     def getnrbits(self):
@@ -178,33 +219,30 @@ class fixbv(object):
             return max(NrBitsMin, NrBitsMax)
     nrbits = property(getnrbits)
 
-    # ------------------------------------------------------------------------------
-    #                          GENERIC CLASS-METHODS
-    # ------------------------------------------------------------------------------
-    #
-    # function : __init__
-    # brief    : initializes the fixbv
-    # input    :
-    #       val stored-integer value
-    #       shift shift-value
-    #       min minimum-value of the stored-integer
-    #       max maximum-value of the stored-integer
-    def __init__(self, val=0, shift=0, min=None, max=None):
-        assert (min is None and max is None) or (min is not None and max is not None), 'Expected either min AND max equal to None or min and max not equal to None'
-        if isinstance(val, fixbvrw):
-            self._shift = val._shift
-            self._val = val._val
-            self._min = val._min
-            self._max = val._max
+    def _cast(self, val):
+        if isinstance(val, float):
+            if self._init_asfloat:
+                return int(floor(val * 2**(-self.shift) + 0.5)) # cast from float
+            else:
+                raise TypeError('fixbv does not accept floats by default, maybe you want to use asfloat=True')
+        if val is None:
+            return None # allow None
+        return int(val) # e.g. string '0x3a'
+           
+    def fixto(self, other):
+        
+        if isinstance(other, fixbv):
+            shift2 = other.shift
+        elif hasattr(other, '_val') and isinstance(other._val, fixbv):
+            shift2 = other._val.shift
         else:
-            self._shift = shift
-            self.si = long(val)
-            if min is not None:
-                self.minsi = min
-            if max is not None:
-                assert min < max, 'Exptected min < max, but got min=%d and max=%d instead' % (min, max)
-                self.maxsi = max
-        self._handleBounds()
+            raise Exception('fixto only accepts fixbv')
+        sh = self.shift - shift2      
+        if sh >= 0:
+            si = self.si * 2**sh
+        else:
+            si = self.si // (2**-sh) # truncate
+        return fixbv(si, shift2)  
 
     #
     # function : _isfixbv
@@ -251,9 +289,7 @@ class fixbv(object):
         if  self.maxsi is not None and self.minsi is not None:
             if (self.minsi > self.si) or (self.si >= self.maxsi):
                 Ssi = fixbvstr_from_tuple(self.si, self.shift)
-                Smin = fixbvstr_from_tuple(self.minsi, self.shift)
-                Smax = fixbvstr_from_tuple(self.maxsi, self.shift)
-                raise ValueError("Value %s out of range [%s, %s>" % (Ssi, Smin, Smax))
+                raise ValueError("fixbv: Value {} out of range [{}, {}>".format(Ssi, self.minsi, self.maxsi))
 
     # def _hasFullRange(self):
     #     min, max = self.minsi, self.maxsi
@@ -290,14 +326,15 @@ class fixbv(object):
         if self.shift >= 0:
             return True
         else:
-            binstr = bin(self.si)
-            binstr_reversed = binstr[::-1]
-            nr_leading_zeros = len(binstr_reversed) - len(binstr_reversed.lstrip('0'))
-            #print "Leading zeros", nr_leading_zeros
-            if nr_leading_zeros + self.shift >= 0:
-                return True
-            else:
-                return False
+            return (self._val % (2**-self.shift)) == 0
+#            binstr = bin(self.si)
+#            binstr_reversed = binstr[::-1]
+#            nr_leading_zeros = len(binstr_reversed) - len(binstr_reversed.lstrip('0'))
+#            #print "Leading zeros", nr_leading_zeros
+#            if nr_leading_zeros + self.shift >= 0:
+#                return True
+#            else:
+#                return False
 
     #------------------------------------------------------------------------------
     #                          INDEXING AND SLICING METHODS
@@ -322,7 +359,7 @@ class fixbv(object):
             if i <= j:
                 raise ValueError("fixbv[i:j] requires i > j\n" \
                       "            i, j == {}, {}".format(i, j))
-            res = intbv((self.si & (long(1) << i)-1) >> j, _nrbits=i-j)
+            res = intbv((self.si & (int(1) << i)-1) >> j, _nrbits=i-j)
             return res
         else:
             i = int(key-self.shift)
@@ -338,20 +375,20 @@ class fixbv(object):
                 j = 0
             j = int(j)
             if j < 0:
-                raise ValueError("intbv[i:j] = v requires j >= 0\n" \
+                raise ValueError("fixbv[i:j] = v requires j >= 0\n" \
                       "            j == %s" % j)
             if i is None: # default
-                q = self.si % (long(1) << j)
-                self.si = val * (long(1) << j) + q
+                q = self.si % (int(1) << j)
+                self.si = val * (int(1) << j) + q
                 self._handleBounds()
                 return
             i = int(i)
             if i <= j:
-                raise ValueError("intbv[i:j] = v requires i > j\n" \
+                raise ValueError("fixbv[i:j] = v requires i > j\n" \
                       "            i, j, v == %s, %s, %s" % (i, j, val))
-            lim = (long(1) << (i-j))
+            lim = (int(1) << (i-j))
             if val >= lim or val < -lim:
-                raise ValueError("intbv[i:j] = v abs(v) too large\n" \
+                raise ValueError("fixbv[i:j] = v abs(v) too large\n" \
                       "            i, j, v == %s, %s, %s" % (i, j, val))
             mask = (lim-1) << j
             self.si &= ~mask
@@ -360,11 +397,11 @@ class fixbv(object):
         else:
             i = int(key)
             if val == 1:
-                self.si |= (long(1) << i)
+                self.si |= (int(1) << i)
             elif val == 0:
-                self.si &= ~(long(1) << i)
+                self.si &= ~(int(1) << i)
             else:
-                raise ValueError("intbv[i] = v requires v in (0, 1)\n" \
+                raise ValueError("fixbv[i] = v requires v in (0, 1)\n" \
                       "            i == %s " % i)
                
             self._handleBounds()
@@ -416,8 +453,8 @@ class fixbv(object):
         #     x = fixbv(other)
         #     return self / x
 
-        # The result might be very inprecise, depending on the values of a and b. Therefore it is chosen not to support
-        # this function for now.
+        # The result might be very inprecise, depending on the values of a and b. 
+        # Therefore it is chosen not to support this function for now.
         raise NotImplementedError('The truediv function is not implemented yet')
 
     def __rtruediv__(self, other):
@@ -460,7 +497,7 @@ class fixbv(object):
                 raise TypeError('Second argument must be an integer value')
         elif not isinstance(other, intbv) and not isinstance(other, integer_types):
             raise TypeError('Second argument must be an integer value')
-        powerval = long(other)
+        powerval = int(other)
         return fixbv(self.si**powerval, self.shift * powerval)
 
     def __rpow__(self, other):
@@ -524,7 +561,7 @@ class fixbv(object):
     def __lshift__(self, other):
         if self._isfixbv(other):
             if other.is_integer():
-                return fixbv(self.si, self.shift + long(other))
+                return fixbv(self.si, self.shift + int(other))
             else:
                 raise TypeError("Cannot shift value by an none-integer value")
         else:
@@ -538,7 +575,7 @@ class fixbv(object):
     def __rshift__(self, other):
         if self._isfixbv(other):
             if other.is_integer():
-                return fixbv(self.si, self.shift - long(other))
+                return fixbv(self.si, self.shift - int(other))
             else:
                 raise TypeError("Cannot shift value by an none-integer value")
         else:
@@ -553,7 +590,7 @@ class fixbv(object):
         # The ilshift will operate on the si itself. Because of this, there might be rounding errors
         if self._isfixbv(other):
             if other.is_integer():
-                self.si = long(self.si << long(other))
+                self.si = int(self.si << int(other))
             else:
                 raise TypeError("Cannot shift value by an none-integer value")
         else:
@@ -567,7 +604,7 @@ class fixbv(object):
         # The irshift will operate on the si itself. Because of this, there might be rounding errors
         if self._isfixbv(other):
             if other.is_integer():
-                self.si = long(self.si >> long(other))
+                self.si = int(self.si >> int(other))
             else:
                 raise TypeError("Cannot shift value by an none-integer value")
         else:
@@ -579,7 +616,7 @@ class fixbv(object):
 
     def __invert__(self):
         if self.nrbits and self.minsi >= 0:
-            return type(self)(~self.si & (long(1) << self.nrbits)-1)
+            return type(self)(~self.si & (int(1) << self.nrbits)-1)
         else:
             return type(self)(~self.si)
 
@@ -631,7 +668,7 @@ class fixbv(object):
         return int(self.si*2**self.shift)
     
     def __long__(self):
-        return long(self.si*2**self.shift)
+        return int(self.si*2**self.shift)
 
     def __oct__(self):
         return oct(int(self))
@@ -640,26 +677,28 @@ class fixbv(object):
         return hex(int(self))
 
     def __str__(self):
-        S = fixbvstr_from_tuple(self.si, self.shift)
+        if self._print_asfloat:
+            S = "{}".format(self.si*2**self.shift)
+        else:
+            S = fixbvstr_from_tuple(self.si, self.shift)
         return S
     
     def __repr__(self):
+        '''return string should result in exact same object'''
         if self.minsi is None:
-            return "fixbv({})".format(str(self))
+            return "fixbv({}, {})".format(self.si, self.shift)
         else:
-            return "fixbv({}, min={}, max={}, nrbits={})".format(str(self),
-                                                                        fixbvstr_from_tuple(self.minsi, self.shift),
-                                                                        fixbvstr_from_tuple(self.maxsi, self.shift),
-                                                                        repr(self.nrbits))
+            return "fixbv({}, {}, min={}, max={})".format(self.si,self.shift,
+                                                         self.minsi, self.maxsi)
 
     # ------------------------------------------------------------------------------
     #                          OTHER
     # ------------------------------------------------------------------------------
     def signed(self):
-      ''' return integer with the signed value of the intbv instance
+      ''' return integer with the signed value of the stored integer 
 
-      The intbv.signed() function will classify the value of the intbv
-      instance either as signed or unsigned. If the value is classified
+      The fixbv.signed() function will classify the value of the stored
+      insteger either as signed or unsigned. If the value is classified
       as signed it will be returned unchanged as integer value. If the
       value is considered unsigned, the bits as specified by _nrbits
       will be considered as 2's complement number and returned. This
@@ -718,37 +757,37 @@ class fixbv(object):
 # distinction between 10.0 and 10, it should not draw conclusions of what type of initialization is required
 # based on the type of the initialization value (float or int). Therefore it chosen to create a special class,
 # where only the init-function is different.
-class fixbvrw(fixbv):
-    def __init__(self, val = 0.0, fractionlength = 0, min = None, max = None):
-        # val, min and max are interpreted as real-world-values.
-        # fractionlength indicates the number of fractional bits used and therefore is indicates the resolution of
-        # the fixed-point-value.
-        assert (min is None and max is None) or (min is not None and max is not None), 'Expected either min AND max equal to None or min and max not equal to None'
-        self.si = long(floor(val * 2**fractionlength + 0.5))        # In python 2, 'long' rounds towards 0
-        self._shift = -fractionlength
-        if min is not None:
-            self.minsi = long(floor(min * 2 ** fractionlength + 0.5))
-        if max is not None:
-            assert min < max, 'Exptected min < max, but got min=%d and max=%d instead' % (min, max)
-            self.maxsi = long(floor(max * 2 ** fractionlength + 0.5))
-        self._handleBounds()
-
+#class fixbvrw(fixbv):
+#    def __init__(self, val = 0.0, fractionlength = 0, min = None, max = None):
+#        # val, min and max are interpreted as real-world-values.
+#        # fractionlength indicates the number of fractional bits used and therefore is indicates the resolution of
+#        # the fixed-point-value.
+#        assert (min is None and max is None) or (min is not None and max is not None), 'Expected either min AND max equal to None or min and max not equal to None'
+#        self.si = int(floor(val * 2**fractionlength + 0.5)) # In python 2, 'int' rounds towards 0
+#        self._shift = -fractionlength
+#        if min is not None:
+#            self.minsi = int(floor(min * 2 ** fractionlength + 0.5))
+#        if max is not None:
+#            assert min < max, 'Exptected min < max, but got min=%d and max=%d instead' % (min, max)
+#            self.maxsi = int(floor(max * 2 ** fractionlength + 0.5))
+#        self._handleBounds()
+#
 if __name__ == "__main__":
-    a = fixbvrw(10, 2, min = None, max = None)
-    b = fixbvrw(10.5, -2, min=None, max=None)
-    c = fixbvrw(42.4 / 4, 2, min=None, max=None)
-    d = fixbvrw(42.5 / 4, 2, min=None, max=None)
-    e = fixbvrw(42.6 / 4, 2, min=None, max=None)
+    a = fixbv(10, 2, min = None, max = None)
+    b = fixbv(10.5, -2, min=None, max=None)
+    c = fixbv(42.4 / 4, 2, min=None, max=None)
+    d = fixbv(42.5 / 4, 2, min=None, max=None)
+    e = fixbv(42.6 / 4, 2, min=None, max=None)
 
     f = fixbv(a)
 
-    print a
-    print b
-    print c
-    print d
-    print e
+    print(a)
+    print(b)
+    print(c)
+    print(d)
+    print(e)
 
-    print a == f
+    print(a == f)
 
 
     # import random
@@ -764,8 +803,8 @@ if __name__ == "__main__":
 
     (c, d) = a.align(b)
 
-    print c
-    print d
+    print(c)
+    print(d)
 
     # c = a % b
     # print c

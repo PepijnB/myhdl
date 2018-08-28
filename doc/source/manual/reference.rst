@@ -636,6 +636,160 @@ The :class:`modbv` class
    This formula is a generalization of modulo wrap-around behavior that
    is often useful when describing hardware system behavior. 
 
+.. _ref-fixbv:
+
+The :class:`fixbv` class
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. class:: fixbv([val=0] [, shift=0] [, min=None]  [, max=None] [, asfloat=False] )
+
+    This class represents an object suitable for fixed point arithmatic.
+    A :class:`fixbv` object is a scaled integer, and can therefore be 
+    represented by a integer-value and a scaling factor, where the 
+    scaling-factor must be a integer-power of 2: 
+
+        represented_value = stored_integer * 2\ :sup:`shift`
+
+    where the shift-factor can be any integer value (positive and negative). 
+    Note that the scaling factor nor the shift are present in the final
+    hardware; it is just an agreement to interpret the lsb of the integer 
+    to have weight of 2\ :sup:`shift` rather than 2\ :sup:`0`\ .
+
+
+    The *val* argument can be an :class:`int`, a
+    :class:`long`, an :class:`intbv`, a :class:`float` or a bit string 
+    (a string with only '0's or '1's). For a bit string argument, the value is
+    calculated as in ``int(bitstring, 2)``. Optionally a float can be used as input, when
+    asfloat is True. In that case the val is  converted to a stored integer by 
+    multiplying with 2\ :sup:`-shift` and rounding to the nearest integer value. 
+    Note that this may result in loss of accuracy (floats have a fixed number of bits 
+    and integers have arbitrary length)
+    
+    The optional *min* and *max* arguments can be used to specify the minimum and maximum
+    value of the :class:`fixbv` object. As in standard Python
+    practice for ranges, the minimum value is inclusive and the
+    maximum value is exclusive.
+
+    The minimum and maximum values of an :class:`intbv` object are
+    available as attributes:
+
+    The *shift* argument can only be :class:`int`, and determines the scaling factor 
+    as explained above
+
+    .. _asfloat:
+    
+    The *asfloat* argument can either a single boolean (True/False) or a 3-tuple of booleans:
+    (init, print, vcd). 'init' allows for instance initialization using floats, 'print' will
+    change print format to display a float rather than 'si * 2**shift', 'vcd' will write
+    the value as a float to the vcd file rather than a (bit) vector (this can be useful when 
+    displaying analog waves). When a single value is specified it will be applied for all 3 cases.
+    Note that the asfloat flag will only cast to integer when inputs are floats, integer arguments
+    still work as before. 
+
+    .. attribute:: shift
+
+        Read-only attribute that represents the (power of 2) scaling value
+
+    .. attribute:: minsi
+
+        Read-only attribute that is the minimum value (inclusive) of the stored integer 
+        of a :class:`fixbv`, or *None* for no minimum.
+
+
+    .. attribute:: maxsi
+
+        Read-only attribute that is the maximum value (exclusive) of the stored integer 
+        of a :class:`fixbv`, or *None* for no maximum.
+
+    .. attribute:: si
+
+        Read-only attribute that is the stored integer of a :class:`fixbv`
+       
+    .. attribute:: nrbits
+
+        Read-only attribute that returns the number of bits :class:`fixbv`. In
+        case the number of bits cannot be calculated this attribute returns 0
+       
+    .. attribute:: eps
+    
+        Read-only attribute that returns the value of the LSB (2\ :sup:`-shift`)
+
+    .. method:: signed()
+
+        Interpretes the msb bit as as sign bit and extends it into the higher-order
+        bits of the underlying object value. The msb bit is the highest-order bit
+        within the object's bit width.
+
+    :rtype: integer
+
+    .. method:: fixto(other)
+    
+       Returns a fixbv that has the same shift as other. accuracy loss may happen 
+       due to truncation.
+
+    :rtype: fixbv
+
+    
+    Like :class:`intbv`,  :class:`fixbv`objects are mutable; this is also
+    the reason for their existence. Mutability is needed to support assignment to
+    indexes and slices, as is common in hardware design. 
+
+    An :class:`fixbv` object supports the same comparison, numeric, bitwise,
+    logical, and conversion operations as :class:`intbv` objects. For mixed-type 
+    numeric operations, the result type is always a :class:`fixbv` 
+
+    In addition, :class:`fixbv` supports a number of sequence operators. 
+    In particular, the :func:`len` function returns the object's bit width. Furthermore,
+    :class:`fixbv` objects support indexing and slicing operations:
+
+    +-----------------+---------------------------------+--------+
+    | Operation       | Result                          | Notes  |
+    +=================+=================================+========+
+    | ``bv[i]``       | item *i* of *bv*                | \(1)   |
+    +-----------------+---------------------------------+--------+
+    | ``bv[i] = x``   | item *i* of *bv* is replaced by | \(1)   |
+    |                 | *x*                             |        |
+    +-----------------+---------------------------------+--------+
+    | ``bv[i:j]``     | slice of *bv* from *i* downto   | (2)(3) |
+    |                 | *j*                             |        |
+    +-----------------+---------------------------------+--------+
+    | ``bv[i:j] = t`` | slice of *bv* from *i* downto   | (2)(4) |
+    |                 | *j* is replaced by *t*          |        |
+    +-----------------+---------------------------------+--------+
+
+    (1)
+    Indexing follows the most common hardware design conventions: the lsb bit is the
+    rightmost bit, and it has index shift (can be negative). This has the following desirable property: if
+    the :class:`fixbv` value is decomposed as a sum of powers of 2, the bit with
+    index *i* corresponds to the term ``2**i``.
+
+    (2)
+    In contrast to standard Python sequencing conventions, slicing range are
+    downward. This is a consequence of the indexing convention, combined with the
+    common convention that the most significant digits of a number are the leftmost
+    ones. The Python convention of half-open ranges is followed: the bit with the
+    highest index is not included. However, it is the *leftmost* bit in this case.
+    As in standard Python, this takes care of one-off issues in many practical
+    cases: in particular, ``bv[i:]`` returns *i* bits; ``bv[i:j]`` has ``i-j`` bits.
+    When the low index *j* is omitted, it defaults to ``0``. When the high index *i*
+    is omitted, it means "all" higher order bits.
+
+    (3)
+    The object returned from a slicing access operation is always a positive
+    :class:`intbv`; higher order bits are implicitly assumed to be zero. The bit
+    width is implicitly stored in the return object, so that it can be used in
+    concatenations and as an iterator. In addition, for a bit width w, the *min* and
+    *max* attributes are implicitly set to ``0`` and ``2**w``, respectively.
+
+    (4)
+    When setting a slice to a value, it is checked whether the slice is wide enough.
+
+    In addition, an :class:`fixbv` object supports the iterator protocol. This makes
+    it possible to iterate over all its bits, from the high index to LSB index. This
+    is only possible for :class:`fixbv` objects with a defined bit width.
+   
+   
+   
 The :func:`enum` factory function
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

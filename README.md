@@ -27,7 +27,9 @@ MyHDL is available under the LGPL license.  See ``LICENSE.txt``.
 
 Website
 -------
-The project website is located at http://www.myhdl.org
+The main project website is located at http://www.myhdl.org
+This development branch implements a fixbv and is hosted at: https://github.com/imec-myhdl/myhdl
+
 
 Documentation
 -------------
@@ -35,17 +37,43 @@ The manual is available on-line:
 
    - http://docs.myhdl.org/en/stable/manual
 
+The documentation for this developent branch can be read online from: https://github.com/imec-myhdl/myhdl/doc/MyHDL.py
+alternatively you can build it yourself:
+
+```
+cd doc
+make <target>
+
+where <target> is any of:
+  html       to make standalone HTML files
+  livehtml   to make continuously updating standalone HTML files
+  web        to make files usable by Sphinx.web
+  htmlhelp   to make HTML files and a HTML help project
+  latex      to make LaTeX files, you can set PAPER=a4 or PAPER=letter
+  latexpdf   to make LaTeX files and run them through pdflatex
+  text       to make text files
+  man        to make manual pages
+  texinfo    to make Texinfo files
+  info       to make Texinfo files and run them through makeinfo
+  gettext    to make PO message catalogs
+  changes    to make an overview of all changed/added/deprecated items
+  linkcheck  to check all external links for integrity
+  doctest    to run all doctests embedded in the documentation (if enabled)
+```
+
 What's new
 ----------
 To find out what's new in this release, please read:
 
-<<<<<<< HEAD
-   - http://docs.myhdl.org/en/stable/whatsnew/0.9.html
-   
- This repository has an additional type: fixbv, a 'fixed-point bit-vector' that is very suitable for digital signal processing. See doc and example directories 
-=======
-   - http://docs.myhdl.org/en/stable/whatsnew/0.10.html
->>>>>>> upstream/master
+
+    - http://docs.myhdl.org/en/stable/whatsnew/0.10.html
+
+    - This development branch implements a fixbv class that is intended for fixed point arithmetic.
+    Simulation is fully supported, but conversion to Verilog/VHDL is not (yet). Any help welcome.
+
+    - Vcd files now support real (float) values when using floats or fixbv in as Signals. That allows 
+    GTKWave to display the signals as 'analog' waves
+
 
 Installation
 ------------

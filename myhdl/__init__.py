@@ -149,7 +149,7 @@ from ._bin import bin
 from ._concat import concat
 from ._intbv import intbv
 from ._fixbv import fixbv
-from ._fixbv import fixbvrw
+#from ._fixbv import fixbvrw
 from ._modbv import modbv
 from ._join import join
 from ._Signal import posedge, negedge, Signal, SignalType
@@ -179,7 +179,6 @@ __all__ = ["bin",
            "concat",
            "intbv",
            "fixbv",
-           "fixbvrw",
            "modbv",
            "join",
            "posedge",

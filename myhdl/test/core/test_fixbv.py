@@ -31,11 +31,10 @@ from copy import copy
 import pytest
 
 from myhdl._compat import long
-from myhdl import intbv
+from myhdl._intbv import intbv
 
 import sys
-from _fixbv import fixbv
-from _fixbv import fixbvrw
+from myhdl._fixbv import fixbv
 
 random.seed(2)  # random, but deterministic
 maxint = sys.maxsize
@@ -65,8 +64,8 @@ def generate_random_valid_fixbv_storedinteger(maxval=2 ** 99, maxshift=31, inclu
     else:
         min = None
     if includemax:
-        if val+1 >= maxval-1:
-            max = maxval-1
+        if val+1 >= maxval:
+            max = maxval
         else:
             max = random.randint(val + 1, maxval - 1)
     else:
@@ -75,15 +74,15 @@ def generate_random_valid_fixbv_storedinteger(maxval=2 ** 99, maxshift=31, inclu
     # print repr(a)
     return a
 
-def generate_random_valid_fixbv_realworldvalue(maxval=10.0**8, maxfraclength=31, includemin=False, includemax=False):
-    val = random.uniform(-maxval, maxval)
-    if maxfraclength==0:
-        fraclength = 0
+def generate_random_valid_fixbv_realworldvalue(maxval=10.0**8, maxshift=31, includemin=False, includemax=False):
+    val_float = random.uniform(-maxval, maxval)
+    if maxshift==0:
+        shift = 0
     else:
-        fraclength = random.randint(-maxfraclength, maxfraclength - 1)
+        shift = random.randint(-maxshift, maxshift - 1)
     if includemin:
-        assert False, 'not implemted yet'
-        # stepsize = 2 ** -fraclength
+        assert False, 'not implemented yet'
+        # stepsize = 2 ** -shift
         # if val-stepsize <= -maxval:
         #     min = -maxval
         # else:
@@ -91,17 +90,17 @@ def generate_random_valid_fixbv_realworldvalue(maxval=10.0**8, maxfraclength=31,
     else:
         min = None
     if includemax:
-        assert False, 'not implemted yet'
-        # stepsize = 2 ** -fraclength
+        assert False, 'not implemented yet'
+        # stepsize = 2 ** -shift
         # if val+stepsize >= maxval-stepsize:
         #     max = maxval-stepsize
         # else:
         #     max = random.uniform(val + stepsize, maxval - stepsize)
     else:
         max = None
-    a = fixbvrw(val, fraclength, min, max)
+    a = fixbv(val_float, shift, min, max, asfloat=True)
     # print repr(a)
-    return (a, val)
+    return (a, val_float)
 
 class TestFixbvGeneric:
     def testDefaultValue(self):
@@ -120,16 +119,16 @@ class TestFixbvGeneric:
             assert a.shift <= shiftMax
 
     def testGenerateRandomValidFixbvRealWorldInteger(self):
-        fraclengthMax = 31
+        shiftMax = 31
         valMax = 10**8
         for k in xrange(1000):
             # Pick a random value/shift combination
-            (a, floatval) = generate_random_valid_fixbv_realworldvalue(maxval=valMax, maxfraclength=fraclengthMax, includemin=False, includemax=False)
+            (a, floatval) = generate_random_valid_fixbv_realworldvalue(maxval=valMax, maxshift=shiftMax, includemin=False, includemax=False)
             # The value of a is different from floatval due to rounding. The difference should be <= LSB/2
-            tolerance = a.eps()/2
+            tolerance = a.eps()
 
             assert abs(float(a) - floatval) <= tolerance
-            assert a.shift <= fraclengthMax
+            assert a.shift <= shiftMax
             # assert a.minfloat <= float(a) < a.maxfloat
             # assert a.minfloat >= -valMax
             # assert a.maxfloat <= valMax
@@ -405,10 +404,10 @@ class TestFixbvArithmetic:
             assert(c == d)
 
     def testPow(self):
-        N = random.randint(-99, 99)
+        N = random.randint(0, 99)
         a = fixbv(15, -31)
         b = fixbv(N, 0)
-        aN = fixbv(15**N, -31 * N)
+        aN = a**N
         assert (a**N == aN)
         assert (a**float(N) == aN)
         assert (a**b == aN)
@@ -431,7 +430,7 @@ class TestFixbvArithmetic:
         with pytest.raises(NotImplementedError):
             c = a / a
 
-        with pytest.raises(NotImplementedError):
+        with pytest.raises(TypeError):
             c = 1 / a
 
     def testFloorDiv_fixbv(self):

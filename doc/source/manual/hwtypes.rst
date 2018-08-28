@@ -109,7 +109,7 @@ represent the values in the range. For example::
 .. _hwtypes-indexing:
 
 Bit indexing
-============
+------------
 
 .. index:: single: bit indexing
 
@@ -161,10 +161,9 @@ following code illustrates bit index assignment::
 .. _hwtypes-slicing:
 
 Bit slicing
-===========
+-----------
 
-.. index::
-   single: bit slicing
+.. index:: single: bit slicing
 
 The :class:`intbv` type also supports bit slicing, for both read access
 assignment. For example::
@@ -378,3 +377,122 @@ the data bus and convert them as follows::
 
  real.next = data_bus[8:4].signed()
  imag.next = data_bus[4:].signed()
+.. _hwtypes-intbv:
+
+The :class:`fixbv` class
+========================
+
+.. index:: single: fixbv; basic usage
+
+Hardware design of signal processing functions often involves dealing with so called 
+"fixed-point" arithmetic. MyHDL provides the
+:class:`fixbv` class for this purpose. The name was chosen to suggest a bit vector with a fixed point.
+
+Any fixed-point is a scaled integer, and can therefore be represented by a integer-value and a scaling factor,
+where the scaling-factor must be a integer-power of 2: 
+
+        represented_value = stored_integer * 2\ :sup:`shift`
+
+where the shift-factor can be any
+integer value (positive and negative). Note that the scaling factor nor the shift are present in the final
+hardware; it is just an agreement to interpret the lsb of the integer to have weight of 2\ :sup:`shift` rather than 2\ :sup:`0`\ .
+
+:class:`fixbv` objects are constructed in general as follows::
+
+    fixbv([val=0] [,shift=0] [, min=None]  [, max=None])
+    
+    # examples
+    fixbv(21, -6)        # 21 * 2**-6 (== 0.328125)
+    fixbv(0.328125, -6)  # same number, floats are automaically converted
+    
+    # also specify min and max 
+    fixbv(21, -6, min=0, max=42)              # [min, max) for the stored_int
+    fixbv(0.328125, -6, min=0.0, max=0.65625) # same nb, autoconverted floats 
+
+Because a fixed-point number is a scaled integer, all fixed-point numbers lie on a 'grid' determined by the
+shift-factor. When the :class:`fixbv` is initialized, the initialization-value might not lie on the grid. When this happens, the
+initialization-value is rounded to the nearest grid-point. The same holds for the 'min'- and 'max'-value. Note that integers in 
+python have an arbitrary number of bits, but floats have a fixed precision, so there might occur a loss in the conversion. 
+
+Because every fixed-point number is represented by an stored-integer (and shift) 
+and python can handle integers of infinite length, all operations within the fixbv-class can be 
+(and are!) done with infinite precision. Casting the fixbv from or to a float, might 
+therefore cause round-off errors or over-/underflow errors. To prevent errors the use of floats
+must explicitly be flagged with the initialization::
+
+
+    >>> a = fixbv(6, -3, min=-8, max=8) # 0.75
+    >>> print(a) # print uses 'si * 2**shift' notation
+    6 * 2**-3
+    >>> float(a)
+    0.75
+    >>> repr(a)
+    'fixbv(6, -3, min=-8, max=8)'
+
+    >>> a = fixbv(0.75, -3, min=-1.0, max=1.0) # will thow Exception
+    
+    >>> a = fixbv(0.7, -3, min=-1.0, max=1.0, asfloat=True) # accuracy loss
+    >>> print(a) # print will use 'float' notation
+    0.75
+    >>> repr(a)
+    'fixbv(6, -3, min=-8, max=8)'
+
+The example above shows the use of the asfloat flag. Default behavior is that the flag is used for initialization, 
+printing, and also as format for the VCD file. See asfloat for more options.
+
+Since a fixed-point number stores the integer value with arbitrary number of digits, it is important 
+that all operations do not loose precision. Therefore all arithmetic is done with the notion that there is
+never a information loss, and that all truncation is *explicitly* specified. All arithmetic operarations return
+a new :class:`fixbv`, but not necessary with the same shift. The truncation/shifting operation needs to be done 
+before assigned to a signal.next using :meth:`reference.fixbv.fixto`::
+
+    >>> a = fixbv(6, -3)
+    >>> b = fixbv(2, -5)
+    >>> float(a)
+    0.75
+    >>> float(b)
+    0.0625
+    >>> c = a * b # multiply returns new fixbv object
+    >>> c
+    fixbv(12, -8)
+    >>> float(c)
+    0.046875
+    
+    >>> c.fixto(b)
+    fixbv(1, -5)
+    >>> sig_b      = Signal(b) # create a Signal
+    >>> sig_b.next = c.fixto(sig_b) # also works with fixbv as Signals
+    >>> sig_b.next
+    fixbv(1, -5)
+
+
+
+Bit slicing
+-----------
+
+.. index:: single: fixbv bit slicing
+
+The :class:`fixbv` type also supports bit slicing, for both read access and
+assignment. The bit slice operation will return an :class:`intbv` and
+the object returned by a slice is always positive, even when the original object is
+negative. Examples::
+
+    >>> a = fixbv(24, -2)
+    >>> bin(a) # myhdl version of bin
+    '110'
+    >>> bin(a.si) # stored_integer
+    '11000'
+    >>> a[2:-2]
+    intbv(8)
+    >>> bin(a[2:-2])
+    '1000'
+    >>> print a # uses str(a)
+    24 * 2**-2
+    >>> a       # uses repr(a)
+    fixbv(24, -2)
+
+In accordance with the most common hardware convention, and unlike standard
+Python, slicing ranges are downward.  As in standard Python, the slicing range
+is half-open: the highest index bit is not included. Unlike standard Python
+however, this index corresponds to the *leftmost* item. Note that slices also may
+be using negative numbers.

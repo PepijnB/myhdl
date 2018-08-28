@@ -153,6 +153,10 @@ class _Signal(object):
         elif isinstance(val, integer_types):
             self._type = integer_types
             self._setNextVal = self._setNextInt
+        elif isinstance(val, float):
+            self._type = float
+            self._setNextVal = self._setNextNonmutable
+            self._printVcd = self._printVcdReal
         elif isinstance(val, fixbv):
             self._type = fixbv
             self._min = val._min
@@ -160,7 +164,9 @@ class _Signal(object):
             self._nrbits = val.nrbits
             self._shift = val._shift
             self._setNextVal = self._setNextFixbv
-            if self._nrbits:
+            if val._vcd_asfloat:
+                self._printVcd = self._printVcdReal
+            elif self._nrbits:
                 self._printVcd = self._printVcdVec
             else:
                 self._printVcd = self._printVcdHex
@@ -346,6 +352,9 @@ class _Signal(object):
     # vcd print methods
     def _printVcdStr(self):
         print("s%s %s" % (str(self._val), self._code), file=sim._tf)
+
+    def _printVcdReal(self):
+        print("r%g %s" % (float(self._val*2**self.shift), self._code), file=sim._tf)
 
     def _printVcdHex(self):
         if self._val is None:
