@@ -32,7 +32,7 @@ The manual is available on-line:
 
    - http://docs.myhdl.org/en/stable/manual
 
-The documentation for this developent branch can be read online from: https://github.com/imec-myhdl/myhdl/doc/MyHDL.py
+The documentation for this developent branch can be read online from: https://github.com/imec-myhdl/myhdl/blob/master/doc/MyHDL.pdf
 alternatively you can build it yourself:
 
 ```
