@@ -53,7 +53,7 @@ from __future__ import absolute_import
 from __future__ import print_function
 
 __version__ = "0.11"
-
+__imec__ = True
 
 class StopSimulation(Exception):
     """ Basic exception to stop a Simulation """
