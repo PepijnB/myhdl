@@ -354,7 +354,8 @@ class _Signal(object):
         print("s%s %s" % (str(self._val), self._code), file=sim._tf)
 
     def _printVcdReal(self):
-        print("r%g %s" % (float(self._val*2**self.shift), self._code), file=sim._tf)
+        print("r%g %s" % (float(self._val*2**self._shift), self._code),
+              file=sim._tf)
 
     def _printVcdHex(self):
         if self._val is None:
