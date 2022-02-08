@@ -164,7 +164,7 @@ class _Signal(object):
             self._nrbits = val._nrbits
             self._shift = val._shift
             self._setNextVal = self._setNextFixbv
-            if val._vcd_asfloat:
+            if hasattr(val, '_vcd_asfloat'):
                 self._printVcd = self._printVcdReal
             elif self._nrbits:
                 self._printVcd = self._printVcdVec
