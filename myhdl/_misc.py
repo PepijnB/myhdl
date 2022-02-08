@@ -32,6 +32,8 @@ import inspect
 from myhdl._Cosimulation import Cosimulation
 from myhdl._instance import _Instantiator
 
+__use_instance_names__ = True
+
 def _isGenSeq(obj):
     from myhdl._block import _Block
     if isinstance(obj, (Cosimulation, _Instantiator, _Block)):
@@ -47,10 +49,15 @@ def _isGenSeq(obj):
 
 
 def instances():
+    from myhdl._block import _Block
     f = inspect.currentframe()
     d = inspect.getouterframes(f)[1][0].f_locals
     l = []
-    for v in d.values():
+    for k, v in d.items():
+        # use instance names instead of block-names
+        if __use_instance_names__ and isinstance(v,_Block):
+            v.name = v.__name__ = k
+            
         if _isGenSeq(v):
             l.append(v)
     return l
